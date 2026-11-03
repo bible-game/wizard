@@ -4,7 +4,6 @@ import { evenly, useStepTips, type StepTip } from "@/demo/tour";
 import type { MotionValue } from "framer-motion";
 
 const TIPS: StepTip[] = [
-    { id: "stars", target: "stars", title: "Your stars", text: "Every game and study adds to them. They’re the number at the top of every page." },
     { id: "streak", target: "streak", title: "Day streak", text: "Play on consecutive days to keep it going. Miss a day and it starts again." },
     { id: "seen", target: "coverage", above: true, title: "Bible seen", text: "Each chapter you read lights up, book by book, until you’ve seen the whole Bible." },
 ];
@@ -14,7 +13,7 @@ const PROPHETS: [string, number][] = [["Hosea", 14], ["Joel", 3], ["Amos", 9], [
 
 /**
  * Stats, shown: Statistics as the app has it, with the visitor's figures so far and the chapter they read lit in its
- * division's coverage, while tooltips explain the stars, the streak and Bible seen
+ * division's coverage, while tooltips explain the streak and Bible seen
  */
 export default function StatsStep({ progress, active, stars, streak, seen, games, read }: { progress: MotionValue<number>; active: boolean; stars: number; streak: number; seen: string; games: number; read: boolean }) {
     const figures = [
@@ -42,10 +41,12 @@ export default function StatsStep({ progress, active, stars, streak, seen, games
                     return <span key={i} className={`size-3.5 rounded-[3px] border ${lit ? "border-play-gold bg-play-gold shadow-[0_0_6px_rgba(212,180,85,0.5)]" : "border-play-gold/35"}`}/>;
                 })}</div>
             </div>)}
+            {/* where Stats' content ends: the sign-up below pulls up into the space under it */}
+            <span data-stats-end aria-hidden="true"/>
         </div>
         {layer}
     </>}</div>;
 }
 
 /** The step's share of the tour's scroll, as a share of the screen's height */
-export const STATS_LENGTH = 90;
+export const STATS_LENGTH = 70;

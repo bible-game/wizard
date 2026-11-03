@@ -6,8 +6,6 @@ import type { MotionValue } from "framer-motion";
 
 const TIPS: StepTip[] = [
     { id: "steps", target: "steps", title: "Five questions", text: `A study asks four questions about ${PRACTICE.book} ${PRACTICE.chapter}, then for a summary in your own words.` },
-    { id: "answer", target: "answers", title: "Try them", text: "Tap an answer. Each one you get right earns a star." },
-    { id: "stars", target: "stars", above: true, title: `Up to ${QUESTIONS.length} stars`, text: "One for each question you get right, on top of what the game gave you." },
 ];
 
 const QUIZ = QUESTIONS.length + 1;
@@ -16,7 +14,7 @@ const QUIZ = QUESTIONS.length + 1;
  * Study, shown: the quiz as the app has it, all five steps for the visitor to go through: four questions (each locks
  * on the first answer, shows why, then moves on) and a summary. Every right answer earns a star (the summary isn't
  * graded here: the app grades it on the server),
- * which flies up from where it was earned. Tooltips explain the questions and the stars
+ * which flies up from where it was earned. A tooltip explains the five questions
  */
 export default function StudyStep({ progress, active, onStar, stars }: { progress: MotionValue<number>; active: boolean; onStar: (from: Element) => void; stars: number }) {
     const [at, setAt] = useState(0);
@@ -48,7 +46,7 @@ export default function StudyStep({ progress, active, onStar, stars }: { progres
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-4 px-6 pt-5 max-[440px]:px-4">
-            {question ? <div ref={tip("answers")} className="grid gap-4">
+            {question ? <div className="grid gap-4">
                 <p id="question" className="text-balance font-condensed text-[24px] font-medium leading-[30px]">{question.content}</p>
                 <div role="group" aria-labelledby="question" className="grid gap-2.5">
                     {question.options.map(option => {
@@ -68,7 +66,7 @@ export default function StudyStep({ progress, active, onStar, stars }: { progres
                 {answer ? <button type="button" onClick={() => setAt(at + 1)} className="ui-button h-12 animate-[hero-fade_0.25s_ease-out] !text-[16px] [&_svg]:size-5">
                     {at + 1 < QUESTIONS.length ? "Next question" : "Last: the summary"}<ArrowRightIcon/>
                 </button> : null}
-            </> : <form ref={tip("answers")} onSubmit={send} className="grid gap-3">
+            </> : <form onSubmit={send} className="grid gap-3">
                 <label htmlFor="summary" className="text-balance font-condensed text-[24px] font-medium leading-[30px]">{SUMMARY.content}</label>
                 <textarea id="summary" rows={3} value={summary} onChange={e => setSummary(e.target.value)} disabled={sent} placeholder={SUMMARY.placeholder}
                           className="resize-none rounded-lg border border-ui-line bg-ui-surface px-4 py-3 text-[17px] leading-6 text-ui-text placeholder:text-ui-faint focus:border-ui-muted focus:outline-none"/>
@@ -78,7 +76,7 @@ export default function StudyStep({ progress, active, onStar, stars }: { progres
         </div>
 
         {/* what the study is worth: the stars, lit as they're earned */}
-        <div ref={tip("stars")} className="mx-6 mb-4 flex shrink-0 items-center justify-between rounded-lg border border-ui-line bg-ui-surface px-4 py-3 max-[440px]:mx-4">
+        <div className="mx-6 mb-4 flex shrink-0 items-center justify-between rounded-lg border border-ui-line bg-ui-surface px-4 py-3 max-[440px]:mx-4">
             <span className="text-[14px] text-ui-muted">{stars ? `+${stars} ${stars === 1 ? "star" : "stars"} for studying` : "Study stars"}</span>
             <span className="flex gap-1" aria-label={`${stars} of ${QUESTIONS.length} stars`}>
                 {[...Array(QUESTIONS.length)].map((_, i) => <StarIcon key={i} aria-hidden="true" strokeWidth={1.5}
@@ -91,4 +89,4 @@ export default function StudyStep({ progress, active, onStar, stars }: { progres
 }
 
 /** The step's share of the tour's scroll, as a share of the screen's height */
-export const STUDY_LENGTH = 110;
+export const STUDY_LENGTH = 80;

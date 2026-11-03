@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useLayoutEffect, useState } from "react";
 import { ChurchIcon, EyeIcon, EyeOffIcon, LockIcon, MailIcon, PlayIcon, UserIcon } from "lucide-react";
 import { toast } from "@/demo/toast";
 
@@ -34,6 +34,20 @@ export default function SignUp({ stars }: { stars: number }) {
     const [shown, setShown] = useState(false);
     const [done, setDone] = useState(false);
 
+    // Stats' screen is taller than what's on it, and it scrolls away above the form when the tour lets go: the form
+    // pulls up into the space under its last row, leaving the usual gap, however tall the phone is
+    const GAP = 40;
+    const [top, setTop] = useState(GAP);
+    useLayoutEffect(() => {
+        const measure = () => {
+            const end = document.querySelector("[data-stats-end]"), screen = end?.closest(".absolute.inset-0");
+            if (end && screen) setTop(GAP - Math.max(0, screen.getBoundingClientRect().bottom - end.getBoundingClientRect().bottom));
+        };
+        measure();
+        window.addEventListener("resize", measure);
+        return () => window.removeEventListener("resize", measure);
+    }, []);
+
     function submit(e: React.FormEvent) {
         e.preventDefault();
         const found = problems(values);
@@ -68,8 +82,8 @@ export default function SignUp({ stars }: { stars: number }) {
         </div>;
     };
 
-    return <section aria-labelledby="sign-up-h" className="mt-12 grid scroll-mt-16 gap-5">
-        <h2 id="sign-up-h" role={done ? "status" : undefined} className="text-balance text-center text-[22px] font-semibold leading-7">{done ? "You’re all set" : "Preserve your numbers by creating an account"}</h2>
+    return <section aria-labelledby="sign-up-h" className="relative grid scroll-mt-16 gap-5" style={{ marginTop: top }}>
+        <h2 id="sign-up-h" role={done ? "status" : undefined} className="text-balance text-center text-[22px] font-semibold leading-7">{done ? "You’re all set" : "Create your account"}</h2>
         {/* signed up: "You're all set" says it, and the next thing is today's game */}
         {done ? <div className="grid gap-4 animate-[hero-fade_0.3s_ease-out]">
             <button type="button" autoFocus onClick={() => toast("Opens today’s game on Play")} className="ui-button ui-primary h-12 !text-[16px] [&_svg]:size-5">

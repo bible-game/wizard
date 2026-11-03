@@ -95,11 +95,11 @@ export default function Landing() {
                     <Tour steps={[
                         { id: "how-it-works", length: PLAY_LENGTH, snaps: PLAY_SNAPS, render: (progress, active) =>
                             <PlayStep progress={progress} active={active} bible={bible} onEarn={onGuessStar} copied={copied} onShare={() => share && copy(share)}/> },
-                        { id: "read", length: READ_LENGTH, snaps: [0.08, 0.94], render: (progress, active) =>
+                        { id: "read", length: READ_LENGTH, snaps: [0.03, 0.94], render: (progress, active) =>
                             <ReadStep progress={progress} active={active} read={read} onRead={() => setRead(true)}/> },
-                        { id: "study", length: STUDY_LENGTH, snaps: middles(3), render: (progress, active) =>
+                        { id: "study", length: STUDY_LENGTH, snaps: middles(1), render: (progress, active) =>
                             <StudyStep progress={progress} active={active} onStar={onStudyStar} stars={studyStars}/> },
-                        { id: "stats", length: STATS_LENGTH, snaps: middles(3), render: (progress, active) =>
+                        { id: "stats", length: STATS_LENGTH, snaps: middles(2), render: (progress, active) =>
                             <StatsStep progress={progress} active={active} stars={stars} streak={guessStar ? 1 : 0} seen={guessStar || read ? "<1%" : "0%"} games={guessStar ? 1 : 0} read={read}/> },
                     ]}/>
 
