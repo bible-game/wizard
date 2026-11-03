@@ -25,10 +25,14 @@ export const CHAPTER = [
 /** Reading time, as Read works it out: well under a minute */
 export const READ_MINUTES = 1;
 
-/** The study, cut to one question for the tour */
+/** The study, cut to one question for the tour: one that asks what the psalm means, not what it says */
 export const QUESTION = {
-    content: "“Unless Yahweh builds the house, they labor…”",
-    options: ["in vain who build it", "with joy who build it", "for ever who build it"],
-    correct: "in vain who build it",
-    because: "Psalm 127:1. Without God, even our hardest work comes to nothing.",
+    content: "What does Psalm 127 suggest about the relationship between human effort and God’s provision?",
+    options: [
+        "Human effort is unnecessary when we trust God.",
+        "Human effort alone cannot guarantee success without God.",
+        "God’s provision depends entirely on how hard we work.",
+    ],
+    correct: "Human effort alone cannot guarantee success without God.",
+    because: "Verses 1–2: the builders still build and the watchman still watches, but without Yahweh it is “in vain”. Work isn’t dismissed; it’s put in its place, and rest is his gift: “he gives sleep to his loved ones.”",
 };

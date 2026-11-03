@@ -7,25 +7,24 @@ import { glow, tone } from "@/core/style/regions";
 import { playTheme } from "@/core/style/play-theme";
 import Why from "@/demo/why";
 
-const TIP: StepTip = { id: "mark", target: "mark", above: true, title: "Mark as read", text: "Tap it once you’ve read the psalm to carry on. Every chapter you read lights up on your map of the Bible." };
+// no tooltip unless it's needed: only when the visitor tries to scroll on before marking it read
+const TIP: StepTip = { id: "mark", target: "mark", above: true, title: "Read it?", text: "Tap Mark as read to carry on." };
 
 // the Psalms are a Wisdom book, so Read wears the red region's colour
 export const tint = playTheme.rose;
 
 /** The step's share of the tour's scroll, as a share of the screen's height: the psalm fits on one screen */
 export const READ_LENGTH = 90;
-/** Mark as read's tooltip waits until the psalm has had a moment's reading */
-const TIP_FROM = 0.5;
 
 /**
  * 02 Read: the reader as the app has it, with the psalm the visitor just found, set as poetry. It's short enough to
  * read on the one screen; marking it read is the visitor's to do, and what lets them carry on
  */
 export default function ReadStep({ progress, active, nudge, read, onRead }: { progress: MotionValue<number>; active: boolean; nudge: number; read: boolean; onRead: () => void }) {
-    const { root, tip, layer } = useStepTips(progress, active, p => p >= TIP_FROM ? TIP : null, [], nudge);
+    const { root, tip, layer } = useStepTips(progress, active, () => read || !nudge ? null : TIP, [read, nudge], nudge);
     const name = `Psalm ${PRACTICE.chapter}`;
     return <div ref={root} className="relative flex h-full flex-col">
-        <Why>Finding it is the start. Now read it: under a minute.</Why>
+        <Why>Read what you found, then mark it read: it takes under a minute.</Why>
         {/* the reader's title row: the passage, and how long it takes */}
         <div className="relative flex h-12 shrink-0 items-center justify-center gap-1 border-b border-ui-line text-[17px] font-semibold">
             {name}<ChevronDownIcon className="size-4 text-ui-muted"/>

@@ -14,13 +14,11 @@ import { middles, useTipLayer, type StepTip } from "@/demo/tour";
 import Why from "@/demo/why";
 
 /**
- * The guesses the scroll makes, each narrowing the map (names as the Bible's config spells them): a house on the rock,
- * a house built by wisdom, then a psalm just 40 verses short. Then it's the visitor's turn
+ * The one guess the scroll makes (as the Bible's config spells it): a psalm just 40 verses short, close enough to show
+ * what a reading is and which way it points. Then the visitor takes over
  */
 const WATCHED = [
-    { book: "Mathew", key: "MAT", chapter: 7, zoom: 0.55 },
-    { book: "Proverbs", key: "PRO", chapter: 24, zoom: 0.5 },
-    { book: "Psalms", key: "PSA", chapter: 121, zoom: 0.5 },
+    { book: "Psalms", key: "PSA", chapter: 121 },
 ];
 const MAX_GUESSES = 5;
 
@@ -31,15 +29,12 @@ function scored(bible: any, book: string, key: string, chapter: number) {
 }
 
 /**
- * The scenes: the clue, one per watched guess, then the visitor's turn, which waits on them. The scroll only chooses
- * the scene; moving into one plays it out on its own time, so a fling can't leave the round half-way through a move
+ * The scenes: the clue, then one guess made for the visitor, which hands straight over to them. The scroll only
+ * chooses the scene; moving into one plays it out on its own time, so a fling can't leave the round half-way
  */
 const SCENES: { tip: StepTip; guess?: number }[] = [
-    { tip: { id: "clue", target: "clue", title: "The clue", text: "Every day, one chapter of the whole Bible is hidden behind a sentence like this. Watch three guesses, then you find it." } },
-    { guess: 0, tip: { id: "slot-0", target: "slot-0", title: "A reading", text: "Matthew 7 is far: red. The arrow says the answer is earlier in the Bible. Every guess tells you which way to go." } },
-    { guess: 1, tip: { id: "slot-1", target: "slot-1", title: "Warmer", text: "Proverbs is in the Bible’s Wisdom books, like the answer, so everything else goes dark." } },
-    { guess: 2, tip: { id: "slot-2", target: "slot-2", title: "Close", text: "Psalm 121 is green: the answer is just 40 verses later. Only the Psalms are left." } },
-    { tip: { id: "turn", target: "map", inset: 24, title: "Your turn", text: "It’s 40 verses after Psalm 121. Tap the chapter you think it is, then Guess." } },
+    { tip: { id: "clue", target: "clue", title: "Today’s clue", text: "One chapter of the Bible is hidden behind this sentence. Scroll to see a first guess." } },
+    { guess: 0, tip: { id: "turn", target: "slot-0", title: "Your turn", text: "Green is close, and the arrow points the way: it’s 40 verses after Psalm 121. Tap the chapter you think it is." } },
 ];
 const TURN = SCENES.length - 1;
 
@@ -95,28 +90,37 @@ const RoundMap = forwardRef<MapHandle, { testaments: any[]; picking: boolean; on
             render: () => void;
         };
         const item = (id: string) => internal.model.items.find(i => i.id === id)!;
-        // each guess's book framed with room around it, so its neighbours show where it sits
-        const around = (id: string, zoom: number) => ({ ...internal.frame(item(id)), k: internal.frame(item(id)).k * zoom });
-        // the visitor's turn: close in on the psalms around the answer, so the chapters are big enough to tap
         const near = () => {
-            const cells = item("PSA").cells.filter(c => { const n = parseInt(c.id.split("/")[1]); return n >= 118 && n <= 136; });
-            const x = Math.min(...cells.map(c => c.x)), y = Math.min(...cells.map(c => c.y));
-            const w = Math.max(...cells.map(c => c.x + c.width)) - x, h = Math.max(...cells.map(c => c.y + c.height)) - y;
-            const cam = internal.frame({ x, y, width: w, height: h });
-            return { ...cam, k: cam.k * 0.85 };
+            // the chapters just after the guessed psalm, close enough that every chapter's number shows and is easy to
+            // tap; the guess itself is on its tile above, so it can fall off the edge on a narrow phone
+            const cell = (n: number) => item("PSA").cells.find(c => c.id === `PSA/${n}`)!;
+            const size = cell(125).width;
+            const k = Math.min(84 / size, Math.max(64 / size, internal.frame({ x: cell(121).x, y: cell(121).y, width: cell(130).x + size - cell(121).x, height: size }).k));
+            return { cx: cell(125).centerX, cy: cell(125).centerY, k };
         };
-        const whole = internal.frame(internal.model.world);
-        const views = [whole, ...WATCHED.map(g => around(g.key, g.zoom)), near()];
+        // worked out when they're wanted, from the map's layout as it is then (the library re-lays it out on a resize)
+        const viewOf = (scene: number) => scene === 0 ? internal.frame(internal.model.world) : near();
+        const whole = viewOf(0);
         const allCells = internal.model.items.flatMap(it => it.cells);
 
-        let camera: Camera = whole, frame = 0;
+        let camera: Camera = whole, frame = 0, view = 0;
         const put = (c: Camera) => { camera = c; map.setCamera(c.cx, c.cy, c.k); };
         put(whole);
+
+        // should the map change size (the page's fonts arriving, a phone turning), the library refits it to the whole
+        // Bible: once it has, go back to the scene's view, worked out afresh
+        let resized = 0;
+        const observer = new ResizeObserver(() => {
+            clearTimeout(resized);
+            resized = window.setTimeout(() => { cancelAnimationFrame(frame); put(viewOf(view)); }, 120);
+        });
+        observer.observe(container);
 
         api.current = {
             glide(scene, ms) {
                 cancelAnimationFrame(frame);
-                const from = camera, to = views[scene];
+                view = scene;
+                const from = camera, to = viewOf(scene);
                 if (ms <= 0 || (from.cx === to.cx && from.cy === to.cy && from.k === to.k)) { put(to); return; }
                 const start = performance.now();
                 // the scale changes geometrically, so it reads as one move rather than a slide
@@ -138,7 +142,7 @@ const RoundMap = forwardRef<MapHandle, { testaments: any[]; picking: boolean; on
                 return { x: (c.centerX - camera.cx) * camera.k + container.clientWidth / 2, y: (c.centerY - camera.cy) * camera.k + container.clientHeight / 2 };
             },
         };
-        return () => { cancelAnimationFrame(frame); map.destroy(); };
+        return () => { observer.disconnect(); cancelAnimationFrame(frame); clearTimeout(resized); map.destroy(); };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [testaments]);
 
@@ -153,8 +157,8 @@ const RoundMap = forwardRef<MapHandle, { testaments: any[]; picking: boolean; on
 });
 
 /**
- * 01 Play: the practice round (Psalm 127) on the real map. The scroll plays three guesses, each one a lesson in reading
- * the map, then hands over: the visitor taps and guesses the last one themselves, as on Play. Finding it lights its
+ * 01 Play: the practice round (Psalm 127) on the real map. The scroll makes one guess, which shows what a reading is,
+ * then hands over: the visitor taps and guesses the rest themselves, as on Play. Finding it lights its
  * stars (5 + 1 − guesses), which `onEarn` flies into the key figure; then, as on Play, it can be shared
  */
 export default function PlayStep({ progress, active, nudge, bible, onEarn, onShare, copied }: {
@@ -181,7 +185,7 @@ export default function PlayStep({ progress, active, nudge, bible, onEarn, onSha
         if (target <= shownMade.current) {
             // going back, or on to the visitor's turn: the tiles and dimming change at once, and the camera moves
             shownMade.current = target; setMade(target);
-            map.current?.select(target > 0 && scene < TURN ? cellOf(WATCHED[target - 1].key, WATCHED[target - 1].chapter) : null);
+            map.current?.select(null);
             map.current?.glide(scene, GLIDE * 0.8);
             later(GLIDE * 0.8, () => setShownScene(scene));
         } else {
@@ -240,7 +244,7 @@ export default function PlayStep({ progress, active, nudge, bible, onEarn, onSha
     const ready = !!picked && !already;
 
     return <div ref={root} className="play-ui relative flex h-full flex-col">
-        <Why>Get to know the Bible’s shape, one chapter a day.</Why>
+        <Why>Find today’s chapter: every guess shows you where it sits in the Bible.</Why>
         {/* Play's own screen, edge to edge: the clue, the guesses, then the map filling the rest */}
         <p ref={tip("clue")} className="mx-auto shrink-0 text-balance px-6 pb-3 pt-3 text-center font-mono text-[17px] leading-[25px] text-play-text">{PRACTICE.summary}</p>
         <div ref={slots} className="shrink-0 pb-3"><Guesses guesses={guesses} answer={over && !found ? { book: PRACTICE.book, bookKey: "PSA", chapter: PRACTICE.chapter } : undefined}/></div>
@@ -260,17 +264,18 @@ export default function PlayStep({ progress, active, nudge, bible, onEarn, onSha
                 </button>
             </div> : null}
         </div>
-        {/* the guess bar, as Play's, for the visitor's turn */}
-        {turn ? <div className="shrink-0 border-t border-play-line px-4 py-3">
-            {picked ? <button type="button" onClick={guess} disabled={already}
+        {/* the guess bar, as Play's: there from start to end (empty once the round is over), so the map never changes size;
+            live at the visitor's turn */}
+        <div className={`shrink-0 border-t border-play-line px-4 py-3 ${over ? "invisible" : ""}`}>
+            {turn && picked ? <button type="button" onClick={guess} disabled={already}
                               style={ready ? { background: tone(tint, "solid"), boxShadow: glow(tint) } : undefined}
                               className={`flex h-12 w-full items-center justify-center gap-2 rounded-lg px-4 text-[16px] font-medium transition active:scale-[0.98] ${ready ? "text-play-bg" : "bg-play-raised text-play-faint"}`}>
                 <span className="truncate">{already ? "Already guessed: " : ""}{pickedBook?.name === "Psalms" ? "Psalm" : pickedBook?.name} {pickedChapter}</span>
                 {ready ? <ArrowRightIcon className="size-5 shrink-0" strokeWidth={2}/> : null}
-            </button> : <div aria-hidden="true" className="flex h-12 items-center justify-center gap-2 rounded-lg border border-dashed border-play-line bg-play-surface text-[16px] text-play-muted">
+            </button> : <div aria-hidden="true" className={`flex h-12 items-center justify-center gap-2 rounded-lg border border-dashed border-play-line bg-play-surface text-[16px] transition-colors ${turn ? "text-play-text" : "text-play-faint"}`}>
                 <PointerIcon className="size-5" strokeWidth={1.75}/>Tap the map
             </div>}
-        </div> : null}
+        </div>
         {layer}
     </div>;
 }

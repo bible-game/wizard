@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import Why from "@/demo/why";
 import { BookOpenIcon, ChurchIcon, EyeIcon, EyeOffIcon, FlameIcon, LockIcon, MailIcon, PlayIcon, StarIcon, UserIcon } from "lucide-react";
 import { toast } from "@/demo/toast";
 
@@ -26,7 +25,8 @@ function problems(values: Record<string, string>) {
 }
 
 /**
- * The end of the tutorial (its 04 Stats): the visitor's numbers so far, in one line, heading sign-up in the page, so
+ * The end of the tour: its outcome, celebrated (the visitor's numbers so far, in one line, and why tomorrow matters),
+ * then sign-up in the page as the way to keep them, so
  * they go straight into the new account. A demo: the form checks what it can, then says what the app would do
  */
 export default function SignUp({ stars, streak, seen }: { stars: number; streak: number; seen: string }) {
@@ -76,7 +76,11 @@ export default function SignUp({ stars, streak, seen }: { stars: number; streak:
         { label: "Bible seen", value: seen, icon: BookOpenIcon, colour: "text-ui-text" },
     ];
     return <section id="stats" aria-labelledby="sign-up-h" className="relative mt-10 grid scroll-mt-16 gap-5">
-        <div className="-mx-6 max-[440px]:-mx-4"><Why>Your Bible, lighting up as you go.</Why></div>
+        {/* what they've done, first: the outcome of the three stages, and why tomorrow matters */}
+        <div className="grid gap-2 text-center">
+            <p className="text-balance text-[24px] font-semibold leading-[30px]">Your first chapter, done</p>
+            <p className="text-balance text-[15px] leading-[22px] text-ui-muted">You found it, read it and thought it through. Tomorrow there’s a new chapter: come back to grow your streak and light up more of the Bible.</p>
+        </div>
         {/* the numbers so far, as Statistics shows them, in a single line */}
         <dl className="grid grid-cols-3 divide-x divide-ui-line rounded-lg border border-ui-line bg-ui-surface py-3.5">
             {figures.map(({ label, value, icon: Icon, colour, fill }) => <div key={label} className="grid min-w-0 justify-items-center gap-1 px-2">
@@ -86,7 +90,10 @@ export default function SignUp({ stars, streak, seen }: { stars: number; streak:
                 </dd>
             </div>)}
         </dl>
-        <h2 id="sign-up-h" role={done ? "status" : undefined} className="text-balance text-center text-[22px] font-semibold leading-7">{done ? "You’re all set" : "Create your account"}</h2>
+        <div className="grid gap-1 text-center">
+            <h2 id="sign-up-h" role={done ? "status" : undefined} className="text-balance text-[20px] font-semibold leading-7">{done ? "You’re all set" : "Keep what you’ve earned"}</h2>
+            {done ? null : <p className="text-[14px] text-ui-muted">Create an account so your stars and streak are saved.</p>}
+        </div>
         {/* signed up: "You're all set" says it, and the next thing is today's game */}
         {done ? <div className="grid gap-4 animate-[hero-fade_0.3s_ease-out]">
             <button type="button" autoFocus onClick={() => toast("Opens today’s game on Play")} className="ui-button ui-primary h-12 !text-[16px] [&_svg]:size-5">

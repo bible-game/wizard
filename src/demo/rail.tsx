@@ -4,7 +4,6 @@ export const SECTIONS = [
     { id: "how-it-works", label: "Play" },
     { id: "read", label: "Read" },
     { id: "study", label: "Study" },
-    { id: "stats", label: "Stats" },
 ];
 
 /**
