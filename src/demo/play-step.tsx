@@ -40,7 +40,7 @@ const SCENES: { tip: StepTip; guess?: number }[] = [
     { guess: 3, tip: { id: "slot-3", target: "slot-3", title: "Guess 4 of 5", text: "Jonah 4 is the right book, just 37 verses after the answer. Only Jonah is left." } },
     { guess: 4, tip: { id: "slot-4", target: "slot-4", title: "Guess 5 of 5", text: "Jonah 1. Found it!" } },
     { tip: { id: "stars", target: "stars", above: true, title: "One star", text: "Found on the fifth and last guess. The fewer guesses it takes, the more stars you earn." } },
-    { tip: { id: "share", target: "share", above: true, title: "Share your result", text: "Your guesses as coloured squares, without giving the chapter away. Friends who tap it land here." } },
+    { tip: { id: "share", target: "share", above: true, title: "Share your result", text: "Your guesses as coloured squares, without giving the chapter away. Share it to carry on." } },
 ];
 const STAR_SCENE = 7;
 
@@ -144,8 +144,8 @@ const RoundMap = forwardRef<MapHandle, { testaments: any[]; guesses: any[] }>(fu
  * tooltips explaining each part as it comes. The scroll chooses the scene; each one then plays out in time. The one
  * star lights at the star scene, and `onEarn` gets it to fly into the key figure; then, as on Play, it can be shared
  */
-export default function PlayStep({ progress, active, bible, onEarn, onShare, copied }: {
-    progress: MotionValue<number>; active: boolean; bible: any; onEarn: (from: Element | null) => void; onShare: () => void; copied: boolean;
+export default function PlayStep({ progress, active, nudge, bible, onEarn, onShare, copied }: {
+    progress: MotionValue<number>; active: boolean; nudge: number; bible: any; onEarn: (from: Element | null) => void; onShare: () => void; copied: boolean;
 }) {
     const star = useRef<SVGSVGElement>(null);
     const map = useRef<MapHandle>(null);
@@ -186,7 +186,7 @@ export default function PlayStep({ progress, active, bible, onEarn, onShare, cop
 
     const found = made === PATH.length;
     const lit = found && scene >= STAR_SCENE && shownScene >= STAR_SCENE;
-    const { root, tip, layer } = useTipLayer(shownScene === scene ? SCENES[scene].tip : null, active, [made, lit]);
+    const { root, tip, layer } = useTipLayer(shownScene === scene ? SCENES[scene].tip : null, active, [made, lit], nudge);
 
     // the star is earned the first time it lights, and flies up from here
     const earned = useRef(false);

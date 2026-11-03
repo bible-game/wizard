@@ -1,11 +1,11 @@
 import React, { useState } from "react";
-import { ArrowRightIcon, CheckIcon, StarIcon, XIcon } from "lucide-react";
+import { ArrowRightIcon, CheckIcon, XIcon } from "lucide-react";
 import { PRACTICE, QUESTIONS, SUMMARY } from "@/demo/practice";
 import { evenly, useStepTips, type StepTip } from "@/demo/tour";
 import type { MotionValue } from "framer-motion";
 
 const TIPS: StepTip[] = [
-    { id: "steps", target: "steps", title: "Five questions", text: `A study asks four questions about ${PRACTICE.book} ${PRACTICE.chapter}, then for a summary in your own words.` },
+    { id: "steps", target: "steps", title: "Five questions", text: `A study asks four questions about ${PRACTICE.book} ${PRACTICE.chapter}, then for a summary in your own words. Answer them all to carry on.` },
 ];
 
 const QUIZ = QUESTIONS.length + 1;
@@ -16,7 +16,7 @@ const QUIZ = QUESTIONS.length + 1;
  * graded here: the app grades it on the server),
  * which flies up from where it was earned. A tooltip explains the five questions
  */
-export default function StudyStep({ progress, active, onStar, stars }: { progress: MotionValue<number>; active: boolean; onStar: (from: Element) => void; stars: number }) {
+export default function StudyStep({ progress, active, nudge, onStar, onDone }: { progress: MotionValue<number>; active: boolean; nudge: number; onStar: (from: Element) => void; onDone: () => void }) {
     const [at, setAt] = useState(0);
     const [answers, setAnswers] = useState<string[]>([]);
     const [summary, setSummary] = useState("");
@@ -32,11 +32,11 @@ export default function StudyStep({ progress, active, onStar, stars }: { progres
 
     function send(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
-        if (!sent) setSent(true);
+        if (!sent) { setSent(true); onDone(); }
     }
 
     const done = sent;
-    const { root, tip, layer } = useStepTips(progress, active, evenly(TIPS));
+    const { root, tip, layer } = useStepTips(progress, active, evenly(TIPS), [], nudge);
     return <div ref={root} className="relative flex h-full flex-col">{<>
         {/* the quiz's progress, as five ruled cells: four questions and the summary */}
         <div ref={tip("steps")} className="grid shrink-0 gap-2 px-6 pt-4 max-[440px]:px-4">
@@ -75,15 +75,6 @@ export default function StudyStep({ progress, active, onStar, stars }: { progres
             </form>}
         </div>
 
-        {/* what the study is worth: the stars, lit as they're earned */}
-        <div className="mx-6 mb-4 flex shrink-0 items-center justify-between rounded-lg border border-ui-line bg-ui-surface px-4 py-3 max-[440px]:mx-4">
-            <span className="text-[14px] text-ui-muted">{stars ? `+${stars} ${stars === 1 ? "star" : "stars"} for studying` : "Study stars"}</span>
-            <span className="flex gap-1" aria-label={`${stars} of ${QUESTIONS.length} stars`}>
-                {[...Array(QUESTIONS.length)].map((_, i) => <StarIcon key={i} aria-hidden="true" strokeWidth={1.5}
-                                                       className={`size-5 transition ${i < stars ? "text-ui-accent drop-shadow-[0_0_6px_rgba(212,180,85,0.45)]" : "text-ui-faint"}`}
-                                                       fill={i < stars ? "currentColor" : "none"}/>)}
-            </span>
-        </div>
         {layer}
     </>}</div>;
 }

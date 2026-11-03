@@ -8,7 +8,7 @@ import { playTheme } from "@/core/style/play-theme";
 
 // one tooltip, once the chapter has been read through: Mark as read
 const TIPS: StepTip[] = [
-    { id: "mark", target: "mark", above: true, title: "Mark as read", text: "Tap it once you’ve read the chapter. Every chapter you read counts towards how much of the Bible you’ve seen." },
+    { id: "mark", target: "mark", above: true, title: "Mark as read", text: "Tap it once you’ve read the chapter to carry on. Every chapter you read counts towards how much of the Bible you’ve seen." },
 ];
 
 /** Where the scroll moves the text: from the step's start to the chapter's end, just before Mark as read's tooltip */
@@ -55,8 +55,8 @@ function Passage({ progress }: { progress: MotionValue<number> }) {
  * 02 Read, shown: the reader as the app has it, the whole chapter moving through it as the page scrolls, while tooltips
  * explain Mark as read. Marking it read is the visitor's to do
  */
-export default function ReadStep({ progress, active, read, onRead }: { progress: MotionValue<number>; active: boolean; read: boolean; onRead: () => void }) {
-    const { root, tip, layer } = useStepTips(progress, active, readTip);
+export default function ReadStep({ progress, active, nudge, read, onRead }: { progress: MotionValue<number>; active: boolean; nudge: number; read: boolean; onRead: () => void }) {
+    const { root, tip, layer } = useStepTips(progress, active, readTip, [], nudge);
     return <div ref={root} className="relative flex h-full flex-col">{<>
         {/* the reader's title row: the passage, and how long it takes */}
         <div className="relative flex h-12 shrink-0 items-center justify-center gap-1 border-b border-ui-line text-[17px] font-semibold">

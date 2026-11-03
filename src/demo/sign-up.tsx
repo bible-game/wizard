@@ -1,5 +1,5 @@
-import React, { useLayoutEffect, useState } from "react";
-import { ChurchIcon, EyeIcon, EyeOffIcon, LockIcon, MailIcon, PlayIcon, UserIcon } from "lucide-react";
+import React, { useState } from "react";
+import { BookOpenIcon, ChurchIcon, EyeIcon, EyeOffIcon, FlameIcon, LockIcon, MailIcon, PlayIcon, StarIcon, UserIcon } from "lucide-react";
 import { toast } from "@/demo/toast";
 
 type Field = { name: string; label: string; type: string; icon: typeof MailIcon; autoComplete: string; required?: boolean; hint?: string; half?: boolean };
@@ -25,28 +25,15 @@ function problems(values: Record<string, string>) {
 }
 
 /**
- * The end of the tutorial: sign-up in the page, so the stars the visitor can see top right go straight into their new
- * account. A demo: the form checks what it can, then says what the app would do
+ * The end of the tutorial (its 04 Stats): the visitor's numbers so far, in one line, heading sign-up in the page, so
+ * they go straight into the new account. A demo: the form checks what it can, then says what the app would do
  */
-export default function SignUp({ stars }: { stars: number }) {
+export default function SignUp({ stars, streak, seen }: { stars: number; streak: number; seen: string }) {
     const [values, setValues] = useState<Record<string, string>>({});
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [shown, setShown] = useState(false);
     const [done, setDone] = useState(false);
 
-    // Stats' screen is taller than what's on it, and it scrolls away above the form when the tour lets go: the form
-    // pulls up into the space under its last row, leaving the usual gap, however tall the phone is
-    const GAP = 40;
-    const [top, setTop] = useState(GAP);
-    useLayoutEffect(() => {
-        const measure = () => {
-            const end = document.querySelector("[data-stats-end]"), screen = end?.closest(".absolute.inset-0");
-            if (end && screen) setTop(GAP - Math.max(0, screen.getBoundingClientRect().bottom - end.getBoundingClientRect().bottom));
-        };
-        measure();
-        window.addEventListener("resize", measure);
-        return () => window.removeEventListener("resize", measure);
-    }, []);
 
     function submit(e: React.FormEvent) {
         e.preventDefault();
@@ -82,7 +69,21 @@ export default function SignUp({ stars }: { stars: number }) {
         </div>;
     };
 
-    return <section aria-labelledby="sign-up-h" className="relative grid scroll-mt-16 gap-5" style={{ marginTop: top }}>
+    const figures = [
+        { label: "Stars", value: stars, icon: StarIcon, colour: "text-ui-accent", fill: true },
+        { label: "Day streak", value: streak, icon: FlameIcon, colour: "text-ui-orange" },
+        { label: "Bible seen", value: seen, icon: BookOpenIcon, colour: "text-ui-text" },
+    ];
+    return <section id="stats" aria-labelledby="sign-up-h" className="relative mt-10 grid scroll-mt-16 gap-5">
+        {/* the numbers so far, as Statistics shows them, in a single line */}
+        <dl className="grid grid-cols-3 divide-x divide-ui-line rounded-lg border border-ui-line bg-ui-surface py-3.5">
+            {figures.map(({ label, value, icon: Icon, colour, fill }) => <div key={label} className="grid min-w-0 justify-items-center gap-1 px-2">
+                <dt className="truncate text-[13px] text-ui-muted">{label}</dt>
+                <dd className="flex items-center gap-1.5 text-[26px] font-semibold leading-8 tabular-nums">
+                    <Icon aria-hidden="true" className={`size-5 ${colour}`} fill={fill ? "currentColor" : "none"}/>{value}
+                </dd>
+            </div>)}
+        </dl>
         <h2 id="sign-up-h" role={done ? "status" : undefined} className="text-balance text-center text-[22px] font-semibold leading-7">{done ? "You’re all set" : "Create your account"}</h2>
         {/* signed up: "You're all set" says it, and the next thing is today's game */}
         {done ? <div className="grid gap-4 animate-[hero-fade_0.3s_ease-out]">
