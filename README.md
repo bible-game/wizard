@@ -3,4 +3,4 @@
 [![typescript](https://img.shields.io/badge/TypeScript-3178C6?&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![tailwind](https://img.shields.io/badge/Tailwind-06B6D4?&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
 # wizard
-The BLE Wizard (wizard)
+The BLE Wizard Standalone Demo (wizard)
