@@ -6,8 +6,8 @@ import { squareOf } from "@/app/play/[game]/closeness";
 import Header, { StarCount } from "@/demo/header";
 import { PRACTICE } from "@/demo/practice";
 import SignUp from "@/demo/sign-up";
-import Tour from "@/demo/tour";
-import PlayStep, { exampleRound, PLAY_LENGTH, STARS } from "@/demo/play-step";
+import Tour, { middles } from "@/demo/tour";
+import PlayStep, { exampleRound, PLAY_LENGTH, PLAY_SNAPS, STARS } from "@/demo/play-step";
 import ReadStep, { READ_LENGTH } from "@/demo/read-step";
 import StudyStep, { STUDY_LENGTH } from "@/demo/study-step";
 import StatsStep, { STATS_LENGTH } from "@/demo/stats-step";
@@ -93,13 +93,13 @@ export default function Landing() {
 
                     {/* the four steps, as one pinned screen that each takes over in turn */}
                     <Tour steps={[
-                        { id: "how-it-works", length: PLAY_LENGTH, render: (progress, active) =>
+                        { id: "how-it-works", length: PLAY_LENGTH, snaps: PLAY_SNAPS, render: (progress, active) =>
                             <PlayStep progress={progress} active={active} bible={bible} onEarn={onGuessStar} copied={copied} onShare={() => share && copy(share)}/> },
-                        { id: "read", length: READ_LENGTH, render: (progress, active) =>
+                        { id: "read", length: READ_LENGTH, snaps: [0.08, 0.94], render: (progress, active) =>
                             <ReadStep progress={progress} active={active} read={read} onRead={() => setRead(true)}/> },
-                        { id: "study", length: STUDY_LENGTH, render: (progress, active) =>
+                        { id: "study", length: STUDY_LENGTH, snaps: middles(3), render: (progress, active) =>
                             <StudyStep progress={progress} active={active} onStar={onStudyStar} stars={studyStars}/> },
-                        { id: "stats", length: STATS_LENGTH, render: (progress, active) =>
+                        { id: "stats", length: STATS_LENGTH, snaps: middles(3), render: (progress, active) =>
                             <StatsStep progress={progress} active={active} stars={stars} streak={guessStar ? 1 : 0} seen={guessStar || read ? "<1%" : "0%"} games={guessStar ? 1 : 0} read={read}/> },
                     ]}/>
 
