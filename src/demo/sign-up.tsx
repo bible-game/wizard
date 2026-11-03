@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Why from "@/demo/why";
 import { BookOpenIcon, ChurchIcon, EyeIcon, EyeOffIcon, FlameIcon, LockIcon, MailIcon, PlayIcon, StarIcon, UserIcon } from "lucide-react";
 import { toast } from "@/demo/toast";
 
@@ -75,6 +76,7 @@ export default function SignUp({ stars, streak, seen }: { stars: number; streak:
         { label: "Bible seen", value: seen, icon: BookOpenIcon, colour: "text-ui-text" },
     ];
     return <section id="stats" aria-labelledby="sign-up-h" className="relative mt-10 grid scroll-mt-16 gap-5">
+        <div className="-mx-6 max-[440px]:-mx-4"><Why>Your Bible, lighting up as you go.</Why></div>
         {/* the numbers so far, as Statistics shows them, in a single line */}
         <dl className="grid grid-cols-3 divide-x divide-ui-line rounded-lg border border-ui-line bg-ui-surface py-3.5">
             {figures.map(({ label, value, icon: Icon, colour, fill }) => <div key={label} className="grid min-w-0 justify-items-center gap-1 px-2">

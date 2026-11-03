@@ -173,6 +173,11 @@ export function useStepTips(progress: MotionValue<number>, active: boolean, tipA
         const next = tipAt(p);
         setWanted(prev => prev?.id === next?.id ? prev : next);
     });
+    // and again when what it depends on changes, without waiting for the scroll
+    useEffect(() => {
+        const next = tipAt(progress.get());
+        setWanted(prev => prev?.id === next?.id ? prev : next);
+    }, deps); // eslint-disable-line react-hooks/exhaustive-deps
     return useTipLayer(wanted, active, deps, nudge);
 }
 

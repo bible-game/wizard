@@ -1,83 +1,55 @@
 import React, { useState } from "react";
-import { ArrowRightIcon, CheckIcon, XIcon } from "lucide-react";
-import { PRACTICE, QUESTIONS, SUMMARY } from "@/demo/practice";
-import { evenly, useStepTips, type StepTip } from "@/demo/tour";
 import type { MotionValue } from "framer-motion";
+import { CheckIcon, StarIcon, XIcon } from "lucide-react";
+import { QUESTION } from "@/demo/practice";
+import { useStepTips, type StepTip } from "@/demo/tour";
+import Why from "@/demo/why";
 
-const TIPS: StepTip[] = [
-    { id: "steps", target: "steps", title: "Five questions", text: `A study asks four questions about ${PRACTICE.book} ${PRACTICE.chapter}, then for a summary in your own words. Answer them all to carry on.` },
-];
+const TIP: StepTip = { id: "answer", target: "answers", title: "One question", text: "Pick the words that finish the line. Answer it to carry on." };
 
-const QUIZ = QUESTIONS.length + 1;
+/** The step's share of the tour's scroll, as a share of the screen's height */
+export const STUDY_LENGTH = 70;
 
 /**
- * Study, shown: the quiz as the app has it, all five steps for the visitor to go through: four questions (each locks
- * on the first answer, shows why, then moves on) and a summary. Every right answer earns a star (the summary isn't
- * graded here: the app grades it on the server),
- * which flies up from where it was earned. A tooltip explains the five questions
+ * 03 Study, cut to one question about the psalm: the visitor's first answer stands, with the verse that answers it.
+ * A right answer earns a star, which flies up from the option; any answer lets them carry on
  */
-export default function StudyStep({ progress, active, nudge, onStar, onDone }: { progress: MotionValue<number>; active: boolean; nudge: number; onStar: (from: Element) => void; onDone: () => void }) {
-    const [at, setAt] = useState(0);
-    const [answers, setAnswers] = useState<string[]>([]);
-    const [summary, setSummary] = useState("");
-    const [sent, setSent] = useState(false);
-    const question = QUESTIONS[at];
-    const answer = answers[at];
+export default function StudyStep({ progress, active, nudge, onStar, onDone }: {
+    progress: MotionValue<number>; active: boolean; nudge: number; onStar: (from: Element) => void; onDone: () => void;
+}) {
+    const [answer, setAnswer] = useState<string>();
+    const { root, tip, layer } = useStepTips(progress, active, () => answer ? null : TIP, [answer], nudge);
 
     function choose(option: string, from: Element) {
         if (answer) return;
-        setAnswers(a => { const next = [...a]; next[at] = option; return next; });
-        if (option === question.correct) onStar(from);
+        setAnswer(option);
+        if (option === QUESTION.correct) onStar(from);
+        onDone();
     }
 
-    function send(e: React.FormEvent<HTMLFormElement>) {
-        e.preventDefault();
-        if (!sent) { setSent(true); onDone(); }
-    }
-
-    const done = sent;
-    const { root, tip, layer } = useStepTips(progress, active, evenly(TIPS), [], nudge);
-    return <div ref={root} className="relative flex h-full flex-col">{<>
-        {/* the quiz's progress, as five ruled cells: four questions and the summary */}
-        <div ref={tip("steps")} className="grid shrink-0 gap-2 px-6 pt-4 max-[440px]:px-4">
-            <div className="flex gap-1" aria-hidden="true">{[...Array(QUIZ)].map((_, i) => <span key={i}
-                className={`h-1.5 flex-1 rounded-full transition-colors ${i < at || done ? "bg-ui-muted" : i === at ? "bg-ui-text" : "bg-ui-line"}`}/>)}</div>
-            <p className="text-[13px] text-ui-muted">{done ? "Study complete" : `Question ${at + 1} of ${QUIZ}`} · {PRACTICE.book} {PRACTICE.chapter}</p>
-        </div>
-
-        <div className="flex min-h-0 flex-1 flex-col gap-4 px-6 pt-5 max-[440px]:px-4">
-            {question ? <div className="grid gap-4">
-                <p id="question" className="text-balance font-condensed text-[24px] font-medium leading-[30px]">{question.content}</p>
-                <div role="group" aria-labelledby="question" className="grid gap-2.5">
-                    {question.options.map(option => {
-                        const chosen = answer === option, correct = option === question.correct;
-                        const shown = answer && (chosen || correct);
-                        return <button key={option} type="button" onClick={e => choose(option, e.currentTarget)} disabled={!!answer}
-                                       className={`flex min-h-[52px] items-center justify-between gap-2 rounded-lg border px-4 text-left text-[17px] transition enabled:hover:bg-ui-raised ${shown
-                                           ? correct ? "border-ui-success/60 bg-ui-success/10" : "border-ui-error/60 bg-ui-error/10" : "border-ui-line bg-ui-surface"} ${answer && !shown ? "opacity-50" : ""}`}>
-                            {option}
-                            {shown ? correct ? <CheckIcon className="size-5 text-ui-success"/> : <XIcon className="size-5 text-ui-error"/> : null}
-                        </button>;
-                    })}
-                </div>
+    const right = answer === QUESTION.correct;
+    return <div ref={root} className="relative flex h-full flex-col">
+        <Why>One question, so what you read stays with you.</Why>
+        <div className="flex min-h-0 flex-1 flex-col gap-4 px-6 pt-6 max-[440px]:px-4">
+            <p id="question" className="text-balance font-condensed text-[24px] font-medium leading-[30px]">{QUESTION.content}</p>
+            <div ref={tip("answers")} role="group" aria-labelledby="question" className="grid gap-2.5">
+                {QUESTION.options.map(option => {
+                    const chosen = answer === option, correct = option === QUESTION.correct;
+                    const shown = answer && (chosen || correct);
+                    return <button key={option} type="button" onClick={e => choose(option, e.currentTarget)} disabled={!!answer}
+                                   className={`flex min-h-[52px] items-center justify-between gap-2 rounded-lg border px-4 text-left text-[17px] transition enabled:hover:bg-ui-raised ${shown
+                                       ? correct ? "border-ui-success/60 bg-ui-success/10" : "border-ui-error/60 bg-ui-error/10" : "border-ui-line bg-ui-surface"} ${answer && !shown ? "opacity-50" : ""}`}>
+                        {option}
+                        {shown ? correct ? <CheckIcon className="size-5 text-ui-success"/> : <XIcon className="size-5 text-ui-error"/> : null}
+                    </button>;
+                })}
+            </div>
+            {answer ? <div role="status" className="grid gap-2 animate-[hero-fade_0.3s_ease-out]">
+                {right ? <p className="flex items-center gap-1.5 text-[15px] font-semibold text-ui-accent"><StarIcon className="size-4" fill="currentColor"/>Right. One more star.</p>
+                    : <p className="text-[15px] font-semibold text-ui-muted">Not quite.</p>}
+                <p className="text-[14px] leading-5 text-ui-muted">{QUESTION.because}</p>
             </div> : null}
-            {question ? <>
-                <p role="status" className="min-h-10 text-[14px] leading-5 text-ui-muted">{answer ? `${answer === question.correct ? "Right." : "Not quite."} ${question.because}` : ""}</p>
-                {answer ? <button type="button" onClick={() => setAt(at + 1)} className="ui-button h-12 animate-[hero-fade_0.25s_ease-out] !text-[16px] [&_svg]:size-5">
-                    {at + 1 < QUESTIONS.length ? "Next question" : "Last: the summary"}<ArrowRightIcon/>
-                </button> : null}
-            </> : <form onSubmit={send} className="grid gap-3">
-                <label htmlFor="summary" className="text-balance font-condensed text-[24px] font-medium leading-[30px]">{SUMMARY.content}</label>
-                <textarea id="summary" rows={3} value={summary} onChange={e => setSummary(e.target.value)} disabled={sent} placeholder={SUMMARY.placeholder}
-                          className="resize-none rounded-lg border border-ui-line bg-ui-surface px-4 py-3 text-[17px] leading-6 text-ui-text placeholder:text-ui-faint focus:border-ui-muted focus:outline-none"/>
-                {sent ? <p role="status" className="text-[14px] leading-5 text-ui-muted">Thanks. That’s the study done: in the app, your summary is read back against the chapter’s.</p>
-                    : <button type="submit" disabled={!summary.trim()} className="ui-button ui-primary h-12 !text-[16px] disabled:opacity-50">Send summary</button>}
-            </form>}
         </div>
-
         {layer}
-    </>}</div>;
+    </div>;
 }
-
-/** The step's share of the tour's scroll, as a share of the screen's height */
-export const STUDY_LENGTH = 80;
