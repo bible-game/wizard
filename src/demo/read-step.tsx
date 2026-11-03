@@ -5,7 +5,6 @@ import { CHAPTER, PRACTICE, READ_MINUTES } from "@/demo/practice";
 import { useStepTips, type StepTip } from "@/demo/tour";
 import { glow, tone } from "@/core/style/regions";
 import { playTheme } from "@/core/style/play-theme";
-import Why from "@/demo/why";
 
 // no tooltip unless it's needed: only when the visitor tries to scroll on before marking it read
 const TIP: StepTip = { id: "mark", target: "mark", above: true, title: "Read it?", text: "Tap Mark as read to carry on." };
@@ -24,7 +23,6 @@ export default function ReadStep({ progress, active, nudge, read, onRead }: { pr
     const { root, tip, layer } = useStepTips(progress, active, () => read || !nudge ? null : TIP, [read, nudge], nudge);
     const name = `Psalm ${PRACTICE.chapter}`;
     return <div ref={root} className="relative flex h-full flex-col">
-        <Why>Read what you found, then mark it read: it takes under a minute.</Why>
         {/* the reader's title row: the passage, and how long it takes */}
         <div className="relative flex h-12 shrink-0 items-center justify-center gap-1 border-b border-ui-line text-[17px] font-semibold">
             {name}<ChevronDownIcon className="size-4 text-ui-muted"/>

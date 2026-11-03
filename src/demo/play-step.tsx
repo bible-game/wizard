@@ -11,7 +11,6 @@ import { glow, tone } from "@/core/style/regions";
 import { playTheme } from "@/core/style/play-theme";
 import { PRACTICE } from "@/demo/practice";
 import { middles, useTipLayer, type StepTip } from "@/demo/tour";
-import Why from "@/demo/why";
 
 /**
  * The one guess the scroll makes (as the Bible's config spells it): a psalm just 40 verses short, close enough to show
@@ -244,7 +243,6 @@ export default function PlayStep({ progress, active, nudge, bible, onEarn, onSha
     const ready = !!picked && !already;
 
     return <div ref={root} className="play-ui relative flex h-full flex-col">
-        <Why>Find today’s chapter: every guess shows you where it sits in the Bible.</Why>
         {/* Play's own screen, edge to edge: the clue, the guesses, then the map filling the rest */}
         <p ref={tip("clue")} className="mx-auto shrink-0 text-balance px-6 pb-3 pt-3 text-center font-mono text-[17px] leading-[25px] text-play-text">{PRACTICE.summary}</p>
         <div ref={slots} className="shrink-0 pb-3"><Guesses guesses={guesses} answer={over && !found ? { book: PRACTICE.book, bookKey: "PSA", chapter: PRACTICE.chapter } : undefined}/></div>

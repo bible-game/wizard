@@ -3,7 +3,6 @@ import type { MotionValue } from "framer-motion";
 import { CheckIcon, StarIcon, XIcon } from "lucide-react";
 import { QUESTION } from "@/demo/practice";
 import { useStepTips, type StepTip } from "@/demo/tour";
-import Why from "@/demo/why";
 
 // no tooltip unless it's needed: only when the visitor tries to scroll on without answering
 const TIP: StepTip = { id: "answer", target: "answers", title: "One answer to go", text: "Choose the one you think fits best to carry on." };
@@ -31,7 +30,6 @@ export default function StudyStep({ progress, active, nudge, onStar, onDone }: {
 
     const right = answer === QUESTION.correct;
     return <div ref={root} className="relative flex h-full flex-col">
-        <Why>Answer one question to understand what you read, not just remember it.</Why>
         <div className="flex min-h-0 flex-1 flex-col gap-4 px-6 pt-6 max-[440px]:px-4">
             <p id="question" className="text-balance font-condensed text-[21px] font-medium leading-[27px]">{QUESTION.content}</p>
             <div ref={tip("answers")} role="group" aria-labelledby="question" className="grid gap-2.5">

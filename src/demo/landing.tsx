@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from "react";
-import { PlayIcon, RotateCcwIcon } from "lucide-react";
+import { ChevronDownIcon, PlayIcon, RotateCcwIcon } from "lucide-react";
 import GlowingCross from "@/app/home/glowing-cross";
 import Confetti from "@/core/component/confetti";
 import { squareOf } from "@/app/play/[game]/closeness";
@@ -74,22 +74,21 @@ export default function Landing() {
     return <div className="min-h-dvh">
         <Header stars={stars}/>
         <main>
-            {/* the webapp's hero, led by what the game is for: the first call starts the guided first chapter, and a
-                returning player has their own way straight to today's game */}
+            {/* the webapp's hero (landing.tsx), unchanged */}
             <section className="home-hero">
                 <GlowingCross/>
                 <h1 className="home-hero-text home-tagline">
-                    Discover the Bible, one chapter a day. <em>Play a daily challenge, read the passage, and deepen your understanding.</em>
+                    Explore the Bible <em>with a daily passage-guessing game</em>
                 </h1>
                 <div className="home-hero-actions">
-                    <a href="#how-it-works" className="ui-button ui-primary h-12 w-full max-w-[18rem] text-[15px]">
-                        <PlayIcon className="size-[18px]" strokeWidth={2}/>Start your first chapter
-                    </a>
-                    <button type="button" onClick={() => toast("Opens today’s game on Play")}
-                            className="mt-2 min-h-11 px-3 text-[14px] text-ui-muted underline-offset-4 hover:text-ui-text hover:underline">
-                        Already playing? Go to today&apos;s chapter
+                    <button type="button" onClick={() => toast("Opens today’s game on Play")} className="ui-button ui-primary h-12 w-full max-w-[18rem] text-[15px]">
+                        <PlayIcon className="size-[18px]" strokeWidth={2}/>Play today&apos;s chapter
                     </button>
                 </div>
+                <a href="#how-it-works" className="home-hero-cue">
+                    How it works
+                    <ChevronDownIcon className="size-5" aria-hidden="true"/>
+                </a>
             </section>
 
             <div className="app-page home-more">
