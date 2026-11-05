@@ -121,6 +121,35 @@ function Tile({ offset, x, centre, label, icon: Icon, colour }: {
     </motion.button>;
 }
 
+/** The daily steps (the numbered stages after Purpose): 01 Play to 04 Stats */
+const STEPS = STAGES.map((st, i) => ({ ...st, at: i })).filter(st => st.number && st.number !== "00");
+/** How much the step bar shows: in from Purpose, out before Join us */
+const stepsShown = (v: number) => clamp(Math.min(v - 0.5, LAST - 0.5 - v) * 3);
+
+/** A step's segment: it fills over the scroll from the stage before it to its own, and its name lights while it's on stage */
+function Segment({ s, at, number, label, onGo }: { s: MotionValue<number>; at: number; number: string; label: string; onGo: () => void }) {
+    const fill = useTransform(s, v => `${clamp(v - (at - 1)) * 100}%`);
+    const [on, setOn] = useState(false);
+    useMotionValueEvent(s, "change", v => setOn(Math.round(v) === at));
+    return <button type="button" onClick={onGo} aria-current={on ? "step" : undefined}
+                   className={`group grid min-h-[44px] flex-1 content-center gap-2 text-left transition-colors ${on ? "text-ui-text" : "text-ui-faint hover:text-ui-muted"}`}>
+        <span className="block h-[2px] overflow-hidden rounded-full bg-ui-text/15"><motion.span className="block h-full rounded-full bg-ui-text" style={{ width: fill }}/></span>
+        <span className="text-[12px] leading-none"><span className={`mr-1.5 font-mono ${on ? "text-play-gold" : ""}`}>{number}</span>{label}</span>
+    </button>;
+}
+
+/**
+ * How many steps there are and how far through them the story is, after a story's chapter bar: a segment for each,
+ * filled by the scroll. Tapping one goes to it
+ */
+function Steps({ s, go }: { s: MotionValue<number>; go: (stage: number) => void }) {
+    const shown = useTransform(s, stepsShown);
+    return <motion.nav aria-label="Steps" className="absolute inset-x-0 bottom-[calc(8px+env(safe-area-inset-bottom))] mx-auto flex w-full max-w-[24rem] gap-3 px-6 max-[440px]:px-4"
+                       style={{ opacity: shown, visibility: useTransform(shown, o => o > 0 ? "visible" : "hidden") }}>
+        {STEPS.map(st => <Segment key={st.at} s={s} at={st.at} number={st.number!} label={st.label!} onGo={() => go(st.at)}/>)}
+    </motion.nav>;
+}
+
 /**
  * Home as a story told in one place, after zogreo.org: the screen stays put while the scroll moves it on. The emblem
  * in the middle becomes each stage's picture (the B, the cross, the grid map, a book, a question, the lit chapters of
@@ -138,7 +167,8 @@ export default function Story() {
     // the button stays put through the story, and goes as the emblem does, before Join us
     const action = useTransform(s, v => clamp((LAST - 0.2 - v) / 0.4));
     // the nudge stays until the page's end, fading over its last stretch
-    const cue = useTransform(s, v => clamp((RUN_TO - v) * 2.5));
+    const cue = useTransform(s, v => Math.min(clamp((RUN_TO - v) * 2.5), 1 - stepsShown(v)));
+    const go = (stage: number) => window.scrollTo({ top: stage * window.innerHeight * STEP / 100, behavior: "smooth" });
     const next = () => {
         const step = window.innerHeight * STEP / 100, now = window.scrollY / step;
         const to = now < LAST - 0.1 ? Math.floor(now + 0.1) + 1 : RUN_TO;
@@ -196,7 +226,8 @@ export default function Story() {
                     </motion.div>
                 </div>
 
-                {/* the nudge to scroll, on to the next stage, until the bottom */}
+                {/* through the steps, how many there are and how far along; otherwise, the nudge to scroll */}
+                <Steps s={s} go={go}/>
                 <motion.div className="absolute inset-x-0 bottom-0 flex justify-center" style={{ opacity: cue, pointerEvents: useTransform(cue, c => c > 0.5 ? "auto" : "none") }}>
                     <a href="#" onClick={e => { e.preventDefault(); next(); }} className="home-hero-cue">
                         Scroll down
