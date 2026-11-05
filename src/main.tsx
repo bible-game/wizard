@@ -5,7 +5,7 @@ import "./globals.sass";
 import "./play.sass";
 import { uiTheme } from "@/core/style/ui-theme";
 import Ground from "@/core/component/ground";
-import Landing from "@/demo/landing";
+import App from "@/demo/app";
 
 // as the webapp's root layout: the theme as --ui-* variables, and the Plex faces as the font variables its styles use
 const root = document.documentElement;
@@ -18,7 +18,7 @@ createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
         <MotionConfig reducedMotion="user">
             <Ground/>
-            <Landing/>
+            <App/>
         </MotionConfig>
     </React.StrictMode>
 );

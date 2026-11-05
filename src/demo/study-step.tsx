@@ -15,17 +15,21 @@ export const STUDY_LENGTH = 70;
  * explain it.
  * A right answer earns a star, which flies up from the option; any answer lets them carry on
  */
-export default function StudyStep({ progress, active, nudge, onStar, onDone }: {
-    progress: MotionValue<number>; active: boolean; nudge: number; onStar: (from: Element) => void; onDone: () => void;
+export default function StudyStep({ progress, active, nudge = 0, onStar, onDone, explain, next }: {
+    progress: MotionValue<number>; active: boolean; nudge?: number; onStar?: (from: Element) => void; onDone?: () => void;
+    /** a tip that says what this step is, shown until it's answered */
+    explain?: StepTip;
+    /** once it's answered, what comes next */
+    next?: React.ReactNode;
 }) {
     const [answer, setAnswer] = useState<string>();
-    const { root, tip, layer } = useStepTips(progress, active, () => answer || !nudge ? null : TIP, [answer, nudge], nudge);
+    const { root, tip, layer } = useStepTips(progress, active, () => answer ? null : nudge ? TIP : explain ?? null, [answer, nudge], nudge);
 
     function choose(option: string, from: Element) {
         if (answer) return;
         setAnswer(option);
-        if (option === QUESTION.correct) onStar(from);
-        onDone();
+        if (option === QUESTION.correct) onStar?.(from);
+        onDone?.();
     }
 
     const right = answer === QUESTION.correct;
@@ -48,6 +52,7 @@ export default function StudyStep({ progress, active, nudge, onStar, onDone }: {
                 {right ? <p className="flex items-center gap-1.5 text-[15px] font-semibold text-ui-accent"><StarIcon className="size-4" fill="currentColor"/>Right. One more star.</p>
                     : <p className="text-[15px] font-semibold text-ui-muted">Not quite. Here’s why:</p>}
                 <p className="text-[14px] leading-[21px] text-ui-muted">{QUESTION.because}</p>
+                {next ? <div className="mt-2">{next}</div> : null}
             </div> : null}
         </div>
         {layer}

@@ -1,5 +1,5 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import { MotionValue, useMotionValueEvent } from "framer-motion";
+import { motionValue, MotionValue, useMotionValueEvent } from "framer-motion";
 import { ArrowRightIcon, CheckIcon, PointerIcon, Share2Icon, StarIcon } from "lucide-react";
 import { createGridmap, type Gridmap, type GridmapCell } from "@project-gridmap/library";
 import { buildBibleGridmapData, colourParts, LIGHT_COLOURS, MAP_COLOURS, mapTheme } from "@/app/play/[game]/map/gridmap";
@@ -13,11 +13,19 @@ import { PRACTICE } from "@/demo/practice";
 import { middles, useTipLayer, type StepTip } from "@/demo/tour";
 
 /**
- * The one guess the scroll makes (as the Bible's config spells it): a psalm just 40 verses short, close enough to show
- * what a reading is and which way it points. Then the visitor takes over
+ * How the round is played. "watch", on the landing page: the scroll plays the whole round, a near guess then the
+ * answer, so it explains without asking anything. "live", in the app on a first visit: the visitor plays it from an
+ * empty board on a map they can pan and pinch, as on Play, with a hint at each first (the clue, the first reading, the end)
+ */
+export type PlayMode = "watch" | "live";
+
+/**
+ * The guesses the scroll makes in "watch" (as the Bible's config spells it): a psalm just 40 verses short, close enough
+ * to show what a reading is and which way it points, then the answer
  */
 const WATCHED = [
     { book: "Psalms", key: "PSA", chapter: 121 },
+    { book: "Psalms", key: "PSA", chapter: 127 },
 ];
 const MAX_GUESSES = 5;
 
@@ -28,19 +36,27 @@ function scored(bible: any, book: string, key: string, chapter: number) {
 }
 
 /**
- * The scenes: the clue, then one guess made for the visitor, which hands straight over to them. The scroll only
- * chooses the scene; moving into one plays it out on its own time, so a fling can't leave the round half-way
+ * The watched scenes: the clue, a near guess, then the answer. The scroll only chooses the scene; moving into one plays
+ * it out on its own time, so a fling can't leave the round half-way
  */
 const SCENES: { tip: StepTip; guess?: number }[] = [
-    { tip: { id: "clue", target: "clue", title: "Today’s clue", text: "One chapter of the Bible is hidden behind this sentence. Scroll to see a first guess." } },
-    { guess: 0, tip: { id: "turn", target: "slot-0", title: "Your turn", text: "Green is close, and the arrow points the way: it’s 40 verses after Psalm 121. Tap the chapter you think it is." } },
+    { tip: { id: "clue", target: "clue", title: "01 · The clue", text: "Each day one chapter of the Bible hides behind a single line. You find it on the map: every square is a chapter." } },
+    { guess: 0, tip: { id: "near", target: "slot-0", title: "Each guess helps", text: "Green means close, and the arrow points the way: the chapter is 40 verses after Psalm 121." } },
+    { guess: 1, tip: { id: "found", target: "slot-1", title: "Found in two · 4 stars", text: "Five tries a day. The fewer it takes, the more stars you earn." } },
 ];
-const TURN = SCENES.length - 1;
+
+/** The hints of a first live round, each shown once its moment comes and gone at the next */
+const LIVE = {
+    clue: { id: "live-clue", target: "clue", title: "Today’s clue", text: "One chapter of the Bible hides behind this line. Pinch or scroll to zoom the map, tap a chapter, then guess." },
+    first: { id: "live-first", target: "slot-0", title: "Your first reading", text: "The colour warms as you get closer and the arrow points the way. Chapters it rules out go dark." },
+} satisfies Record<string, StepTip>;
 
 /** How far each scene holds the tour, as a share of the screen's height */
 const SCENE = 32;
 /** The Play step's share of the tour's scroll, and where a fling comes to rest: in the middle of each scene */
 export const PLAY_LENGTH = SCENES.length * SCENE;
+/** live, nothing scrolls the round */
+const STILL = motionValue(0);
 export const PLAY_SNAPS = middles(SCENES.length);
 
 /** A scene's timings: the camera glides, the chapter is tapped, the tile fills, then the tooltip is wanted */
@@ -156,20 +172,22 @@ const RoundMap = forwardRef<MapHandle, { testaments: any[]; picking: boolean; on
 });
 
 /**
- * 01 Play: the practice round (Psalm 127) on the real map. The scroll makes one guess, which shows what a reading is,
- * then hands over: the visitor taps and guesses the rest themselves, as on Play. Finding it lights its
- * stars (5 + 1 − guesses), which `onEarn` flies into the key figure; then, as on Play, it can be shared
+ * 01 Play: the round (Psalm 127) on the real map, watched or played (see `PlayMode`). Finding it lights its stars
+ * (5 + 1 − guesses). Live, `onEarn` flies them into the key figure, `onOver` says the round is done, and the result
+ * offers Share and `next` (on to Read)
  */
-export default function PlayStep({ progress, active, nudge, bible, onEarn, onShare, copied }: {
-    progress: MotionValue<number>; active: boolean; nudge: number; bible: any;
-    onEarn: (from: Element | null, stars: number) => void; onShare: (guesses: any[]) => void; copied: boolean;
+export default function PlayStep({ mode, progress = STILL, active, nudge = 0, bible, onEarn, onOver, onShare, copied = false, next }: {
+    mode: PlayMode; progress?: MotionValue<number>; active: boolean; nudge?: number; bible: any;
+    onEarn?: (from: Element | null, stars: number) => void; onOver?: () => void; onShare?: (guesses: any[]) => void; copied?: boolean;
+    next?: React.ReactNode;
 }) {
+    const live = mode === "live";
     const star = useRef<SVGSVGElement>(null);
     const map = useRef<MapHandle>(null);
     const watched = useMemo(() => WATCHED.map(g => scored(bible, g.book, g.key, g.chapter)), [bible]);
     const [mine, setMine] = useState<any[]>([]);
-    const [scene, setScene] = useState(() => sceneAt(progress.get()));
-    useMotionValueEvent(progress, "change", p => setScene(sceneAt(p)));
+    const [scene, setScene] = useState(() => live ? 0 : sceneAt(progress.get()));
+    useMotionValueEvent(progress, "change", p => { if (!live) setScene(sceneAt(p)); });
 
     // what the round shows: it follows the scene in time, not in scroll
     const [made, setMade] = useState(0);
@@ -202,14 +220,14 @@ export default function PlayStep({ progress, active, nudge, bible, onEarn, onSha
     }, [scene]);
 
     // the visitor's own guesses, after the watched ones
-    const guesses = useMemo(() => [...watched.slice(0, made), ...(made === WATCHED.length ? mine : [])], [watched, made, mine]);
+    const guesses = useMemo(() => live ? mine : watched.slice(0, made), [live, watched, made, mine]);
     const found = guesses.some(g => g.distance === 0);
     const over = found || guesses.length >= MAX_GUESSES;
     const stars = found ? 5 + 1 - guesses.length : 0;
     useEffect(() => { map.current?.rule(guesses, over); }, [guesses, over]);
 
     // the visitor's turn: a tap picks a chapter, and the guess bar guesses it
-    const turn = scene === TURN && shownScene === TURN && !over;
+    const turn = live && shownScene === 0 && !over;
     const [picked, setPicked] = useState<string | null>(null);
     const books = useMemo(() => bible.testaments.flatMap((t: any) => t.divisions.flatMap((d: any) => d.books)), [bible]);
     const pickedBook = picked ? books.find((b: any) => b.key === picked.split("/")[0]) : null;
@@ -228,13 +246,15 @@ export default function PlayStep({ progress, active, nudge, bible, onEarn, onSha
     useEffect(() => {
         if (!over || earned.current) return;
         earned.current = true;
-        const timer = window.setTimeout(() => { setLit(true); if (stars) onEarn(star.current, stars); }, 450);
+        const timer = window.setTimeout(() => { setLit(true); onOver?.(); if (stars) onEarn?.(star.current, stars); }, 450);
         return () => clearTimeout(timer);
-    }, [over, stars, onEarn]);
+    }, [over, stars, onEarn, onOver]);
     const ending: StepTip = found
-        ? { id: "found", target: "result", above: true, title: `Found it · ${stars} ${stars === 1 ? "star" : "stars"}`, text: "The fewer guesses it takes, the more stars you earn. Share your result to carry on." }
-        : { id: "lost", target: "result", above: true, title: "It was Psalm 127", text: "No stars this time, but now you know your way around. Share your result to carry on." };
-    const wanted = lit ? ending : shownScene === scene ? SCENES[scene].tip : null;
+        ? { id: "end-found", target: "result", above: true, title: `Found it · ${stars} ${stars === 1 ? "star" : "stars"}`, text: "The fewer guesses it takes, the more stars you earn. Next, read the chapter you found." }
+        : { id: "end-lost", target: "result", above: true, title: "It was Psalm 127", text: "No stars this time, but now you know your way around. Next, read it." };
+    const wanted = live
+        ? lit ? ending : shownScene !== 0 ? null : guesses.length === 0 ? LIVE.clue : guesses.length === 1 && !over ? LIVE.first : null
+        : shownScene === scene ? SCENES[scene].tip : null;
     const { root, tip, layer } = useTipLayer(wanted, active, [made, lit, mine.length], nudge);
 
     // each guess tile is a tooltip target: registered on every render, so new tiles are there before the tooltip is placed
@@ -256,10 +276,13 @@ export default function PlayStep({ progress, active, nudge, bible, onEarn, onSha
                                                            className={`size-6 transition duration-300 ${i < stars && lit ? "text-ui-accent drop-shadow-[0_0_6px_rgba(212,180,85,0.45)]" : "text-ui-faint"}`}
                                                            fill={i < stars && lit ? "currentColor" : "none"}/>)}
                 </div>
-                <button type="button" onClick={() => onShare(guesses)} aria-live="polite"
-                        className="ui-button ui-primary h-11 !text-[15px] [&_svg]:size-[18px]">
-                    {copied ? <><CheckIcon/>Copied</> : <><Share2Icon/>Share</>}
-                </button>
+                {live ? <div className="grid grid-cols-2 gap-2">
+                    <button type="button" onClick={() => onShare?.(guesses)} aria-live="polite"
+                            className="ui-button h-11 !text-[15px] [&_svg]:size-[18px]">
+                        {copied ? <><CheckIcon/>Copied</> : <><Share2Icon/>Share</>}
+                    </button>
+                    {next}
+                </div> : null}
             </div> : null}
         </div>
         {/* the guess bar, as Play's: there from start to end (empty once the round is over), so the map never changes size;

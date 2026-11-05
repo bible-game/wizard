@@ -19,8 +19,14 @@ export const READ_LENGTH = 90;
  * 02 Read: the reader as the app has it, with the psalm the visitor just found, set as poetry. It's short enough to
  * read on the one screen; marking it read is the visitor's to do, and what lets them carry on
  */
-export default function ReadStep({ progress, active, nudge, read, onRead }: { progress: MotionValue<number>; active: boolean; nudge: number; read: boolean; onRead: () => void }) {
-    const { root, tip, layer } = useStepTips(progress, active, () => read || !nudge ? null : TIP, [read, nudge], nudge);
+export default function ReadStep({ progress, active, nudge = 0, read, onRead, explain, next }: {
+    progress: MotionValue<number>; active: boolean; nudge?: number; read: boolean; onRead: () => void;
+    /** a tip that says what this step is, shown until it's read */
+    explain?: StepTip;
+    /** once it's read, what comes next, in place of the button */
+    next?: React.ReactNode;
+}) {
+    const { root, tip, layer } = useStepTips(progress, active, () => read ? null : nudge ? TIP : explain ?? null, [read, nudge], nudge);
     const name = `Psalm ${PRACTICE.chapter}`;
     return <div ref={root} className="relative flex h-full flex-col">
         {/* the reader's title row: the passage, and how long it takes */}
@@ -43,11 +49,11 @@ export default function ReadStep({ progress, active, nudge, read, onRead }: { pr
 
         {/* as Read's own button: in the book's colour until it's done */}
         <div className="shrink-0 px-6 pb-4 pt-2 max-[440px]:px-4">
-            <button ref={tip("mark")} type="button" onClick={onRead} disabled={read} aria-pressed={read}
+            {read && next ? next : <button ref={tip("mark")} type="button" onClick={onRead} disabled={read} aria-pressed={read}
                     style={read ? { borderColor: `${tint}99`, background: `${tint}1f`, color: tint } : { background: tone(tint, "solid"), boxShadow: glow(tint), color: playTheme.bg, borderColor: "transparent" }}
                     className="ui-button h-12 w-full !text-[16px] [&_svg]:size-5">
                 {read ? <><CheckCircle2Icon/>Read</> : <><CircleIcon/>Mark as read</>}
-            </button>
+            </button>}
         </div>
         {layer}
     </div>;
