@@ -9,7 +9,7 @@ import { toast, Toaster } from "@/demo/toast";
 import { PLAY_ROUTE } from "@/demo/first-run";
 import { playTheme } from "@/core/style/play-theme";
 
-/** A stage: its shape, its number and phase, its line (a *starred* phrase set in italic), and the region colour its step tints the ground */
+/** A stage: its shape, its number and phase, its line, and the region colour its step tints the ground */
 type Stage = { shape: ShapeName; number?: string; phase?: string; text?: string; colour?: string };
 
 /**
@@ -18,11 +18,11 @@ type Stage = { shape: ShapeName; number?: string; phase?: string; text?: string;
  */
 const STAGES: Stage[] = [
     { shape: "b" },
-    { shape: "cross", number: "00", phase: "Purpose", text: "Understand the *human story*" },
-    { shape: "map", number: "01", phase: "Play", text: "Learn to visualise the structure", colour: playTheme.teal },
-    { shape: "book", number: "02", phase: "Read", text: "Dive into each chapter", colour: playTheme.purple },
+    { shape: "cross", number: "00", phase: "Purpose", text: "Explore the human story" },
+    { shape: "map", number: "01", phase: "Play", text: "Visualise the structure", colour: playTheme.teal },
+    { shape: "book", number: "02", phase: "Read", text: "Digest today’s chapter", colour: playTheme.purple },
     { shape: "question", number: "03", phase: "Study", text: "Stretch your understanding", colour: playTheme.rose },
-    { shape: "stats", number: "04", phase: "Stats", text: "Track your numbers over time", colour: playTheme.gold },
+    { shape: "stats", number: "04", phase: "Stats", text: "Track your progress", colour: playTheme.gold },
     { shape: "none" },
 ];
 const LAST = STAGES.length - 1;
@@ -51,8 +51,6 @@ const LINKS = [
 
 const clamp = (t: number) => Math.min(1, Math.max(0, t));
 
-/** A line with its *starred* phrase in the italic of the same face (an <i>: the tagline's <em> is its second line) */
-const styled = (text: string) => text.split("*").map((part, i) => i % 2 ? <i key={i}>{part}</i> : part);
 
 
 /**
@@ -237,23 +235,25 @@ export default function Story() {
             {STAGES.map((st, i) => st.colour ? <Tint key={i} s={s} at={i} colour={st.colour}/> : null)}
             <Header stars={0}/>
             <main className="relative mx-auto flex w-full max-w-[36rem] flex-1 flex-col">
-                {/* every stage laid out as the hero is: the emblem, two lines of words, then the button, which stays put */}
-                <div className="flex flex-1 flex-col items-center justify-center gap-10 px-6 pb-[72px] text-center max-[440px]:px-4">
+                {/* every stage laid out alike: the emblem, then beneath it the stage's words, or on the first screen the button */}
+                <div className="flex flex-1 flex-col items-center justify-center px-6 pb-[72px] text-center max-[440px]:px-4">
                     <div className="relative flex w-full flex-col items-center gap-10">
-                        <StoryEmblem stages={stages} names={shapes} at={s}/>
+                        <StoryEmblem stages={stages} at={s}/>
                         <div className="relative h-[92px] w-full max-w-[24rem]">
-                            {/* the hero's line, at the top and again at the end, where the story comes round */}
-                            {[0, LOOP].map(at => <Fade key={at} at={at} s={s} className="absolute inset-x-0 top-0">
-                                {React.createElement(at ? "p" : "h1", { className: `${at ? "" : "home-hero-text "}home-tagline !mt-0`, "aria-hidden": at ? true : undefined },
-                                    <>Explore the Bible <em>with a daily passage-guessing game</em></>)}
-                            </Fade>)}
+                            {/* the first screen has no line, only the B and the button, in the words' place: its heading is for screen readers */}
+                            <h1 className="sr-only">Bible Game</h1>
+                            <motion.div className="home-hero-actions absolute inset-x-0 top-0 [animation-delay:0.5s]" style={{ opacity: action, visibility: useTransform(action, a => a > 0 ? "visible" : "hidden") }}>
+                                <button type="button" onClick={play} className="ui-button ui-primary h-12 w-full max-w-[18rem] text-[15px]">
+                                    <PlayIcon className="size-[18px]" strokeWidth={2}/>Play today&apos;s chapter
+                                </button>
+                            </motion.div>
                             {STAGES.map((st, i) => st.text ? <Fade key={i} at={i} s={s} className="absolute inset-x-0 top-0">
-                                {/* the phase above the line: its number in the mono (in the step's colour), then its name */}
-                                <p className="mb-2.5 flex items-center justify-center gap-2.5 text-[14px] leading-5 text-ui-muted">
-                                    <span className="font-mono font-medium tabular-nums" style={{ color: st.colour ?? playTheme.faint }}>{st.number}</span>
+                                {/* the phase above the line: its number in the mono, then its name in capitals; the line itself in the italic */}
+                                <p className="mb-2.5 flex items-center justify-center gap-2.5 text-[13px] uppercase leading-5 tracking-[0.06em] text-ui-muted">
+                                    <span className="font-mono font-medium tabular-nums">{st.number}</span>
                                     {st.phase}
                                 </p>
-                                <h2 className="home-tagline !mt-0">{styled(st.text!)}</h2>
+                                <h2 className="home-tagline !mt-0 italic">{st.text}</h2>
                             </Fade> : null)}
                         </div>
 
@@ -265,11 +265,6 @@ export default function Story() {
                             </Fade>
                         </div>
                     </div>
-                    <motion.div className="home-hero-actions" style={{ opacity: action, visibility: useTransform(action, a => a > 0 ? "visible" : "hidden") }}>
-                        <button type="button" onClick={play} className="ui-button ui-primary h-12 w-full max-w-[18rem] text-[15px]">
-                            <PlayIcon className="size-[18px]" strokeWidth={2}/>Play today&apos;s chapter
-                        </button>
-                    </motion.div>
                 </div>
 
                 {/* the nudge to scroll on, always: the story has no end */}
