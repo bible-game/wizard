@@ -62,10 +62,10 @@ function normalise(quad: Point[]): Point[] {
     return [...ordered.slice(start), ...ordered.slice(0, start)];
 }
 
-const glass = (cell: Point[]): Point[] => inset(normalise(cell), GAP);
+export const glass = (cell: Point[]): Point[] => inset(normalise(cell), GAP);
 
 /** Adds the midpoints of a quad's two longest edges, so it has the six corners of a traced logo cell */
-function sixCorners(quad: Point[]): Point[] {
+export function sixCorners(quad: Point[]): Point[] {
     const length = (k: number) => Math.hypot(quad[(k + 1) % 4][0] - quad[k][0], quad[(k + 1) % 4][1] - quad[k][1]);
     const longest = [0, 1, 2, 3].sort((a, b) => length(b) - length(a)).slice(0, 2);
     return quad.flatMap((p, k) => {
@@ -77,7 +77,7 @@ function sixCorners(quad: Point[]): Point[] {
 /**
  * Quads on a jittered lattice: interior vertices wander freely, edge vertices slide along their edge, corners stay put
  */
-function lattice(xs: number[], ys: number[], inside: (i: number, j: number) => boolean, seed: number): Point[][] {
+export function lattice(xs: number[], ys: number[], inside: (i: number, j: number) => boolean, seed: number): Point[][] {
     const within = (i: number, j: number) => i >= 0 && j >= 0 && i < xs.length - 1 && j < ys.length - 1 && inside(i, j);
     const vertex = (i: number, j: number): Point => {
         const [x, y] = [xs[i], ys[j]];
@@ -209,7 +209,7 @@ const B_COLOURS = bCells.map((_, j) => sample(onBs[j].cool ? COOL : WARM, onBs[j
 export const stoneColours = (shape: "b" | "cross"): string[] => shape === "b" ? B_COLOURS : PARTNERS.map(j => B_COLOURS[j]);
 
 /** Rotates `to`'s corners to sit closest to `from`'s, each about its own centre, so a cell turns as little as it can */
-function align(from: Point[], to: Point[]): Point[] {
+export function align(from: Point[], to: Point[]): Point[] {
     const [fx, fy] = centroid(from), [tx, ty] = centroid(to);
     const cost = (r: number) => from.reduce((sum, [x, y], k) => {
         const [ux, uy] = to[(k + r) % to.length];
