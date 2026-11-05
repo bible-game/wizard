@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion, MotionValue, useMotionValueEvent, useScroll, useSpring, useTransform } from "framer-motion";
-import { ArrowRightIcon, ChevronDownIcon, MailIcon, PlayIcon } from "lucide-react";
+import React, { useEffect, useMemo, useRef } from "react";
+import { motion, MotionValue, useScroll, useSpring, useTransform } from "framer-motion";
+import { ChevronDownIcon, MailIcon, PlayIcon } from "lucide-react";
 import { SiDiscord, SiGithub } from "@icons-pack/react-simple-icons";
 import Header from "@/demo/header";
 import StoryEmblem from "@/demo/story-emblem";
@@ -9,27 +9,20 @@ import { toast, Toaster } from "@/demo/toast";
 import { PLAY_ROUTE } from "@/demo/first-run";
 import { playTheme } from "@/core/style/play-theme";
 
-/** Where a stage's button goes: its label and icon, and what it opens */
-type Action = { label: string; to: string };
-/**
- * A stage: its shape, its line, the region colour its step tints the ground, and its button, which carries the step's
- * number and name and takes you to that part of the app
- */
-type Stage = { shape: ShapeName; number?: string; label?: string; text?: string; colour?: string; action?: Action };
-
-const PLAY: Action = { label: "Play today’s chapter", to: "play" };
+/** A stage: its shape, its number and phase, its line (a *starred* phrase set in italic), and the region colour its step tints the ground */
+type Stage = { shape: ShapeName; number?: string; phase?: string; text?: string; colour?: string };
 
 /**
  * The story, a stage per stop of the scroll: the hero, what Bible Game is for, its three daily steps, the record they
  * leave, then Join us; and round again. Each step in a region's colour, in the order the map runs
  */
 const STAGES: Stage[] = [
-    { shape: "b", action: PLAY },
-    { shape: "cross", number: "00", label: "Purpose", text: "The Bible tells the *human story*", action: { label: "Purpose", to: "About" } },
-    { shape: "map", number: "01", label: "Play", text: "*Visualise* its structure", colour: playTheme.teal, action: { label: "Play", to: "play" } },
-    { shape: "book", number: "02", label: "Read", text: "*Dive* into the chapter", colour: playTheme.purple, action: { label: "Read", to: "Read" } },
-    { shape: "question", number: "03", label: "Study", text: "*Dig* a bit deeper", colour: playTheme.rose, action: { label: "Study", to: "Study" } },
-    { shape: "stats", number: "04", label: "Statistics", text: "*Track* your numbers", colour: playTheme.gold, action: { label: "Statistics", to: "Statistics" } },
+    { shape: "b" },
+    { shape: "cross", number: "00", phase: "Purpose", text: "Understand the *human story*" },
+    { shape: "map", number: "01", phase: "Play", text: "Learn to visualise the structure", colour: playTheme.teal },
+    { shape: "book", number: "02", phase: "Read", text: "Dive into each chapter", colour: playTheme.purple },
+    { shape: "question", number: "03", phase: "Study", text: "Stretch your understanding", colour: playTheme.rose },
+    { shape: "stats", number: "04", phase: "Stats", text: "Track your numbers over time", colour: playTheme.gold },
     { shape: "none" },
 ];
 const LAST = STAGES.length - 1;
@@ -41,8 +34,6 @@ const STEP = 70;
  * goes back to the top, which looks the same, so the story runs round and round
  */
 const LOOP = LAST + 1;
-/** The stage whose words and button are showing: the B at the loop is the hero again */
-const stageAt = (v: number) => v > LAST + 0.5 ? 0 : Math.round(Math.max(0, v));
 
 /** LinkedIn's mark, which Simple Icons no longer carries: its "in", set bold */
 const LinkedIn = ({ size }: { size: number }) => <span aria-hidden="true" className="font-sans font-bold leading-none tracking-[-0.04em]" style={{ fontSize: size * 0.92 }}>in</span>;
@@ -60,8 +51,9 @@ const LINKS = [
 
 const clamp = (t: number) => Math.min(1, Math.max(0, t));
 
-/** A line with its *starred* phrase set in the story's second voice, the gold italic serif (.story-accent) */
-const accented = (text: string) => text.split("*").map((part, i) => i % 2 ? <span key={i} className="story-accent">{part}</span> : part);
+/** A line with its *starred* phrase in the italic of the same face (an <i>: the tagline's <em> is its second line) */
+const styled = (text: string) => text.split("*").map((part, i) => i % 2 ? <i key={i}>{part}</i> : part);
+
 
 /**
  * Shown at its stage, and by the scroll: it fades and rises in as the story nears it, and on out as it leaves, so a
@@ -204,7 +196,7 @@ function useStageSnap(onLoop: React.RefObject<() => void>) {
 /**
  * Home as a story told in one place, after zogreo.org: the screen stays put while the scroll moves it on. The emblem
  * in the middle becomes each stage's picture (the B, the cross, the grid map, a book, a question, the lit chapters of
- * the stats page), with the stage's number and name under it, then its line, and a button to that part of the app.
+ * the stats page), with its line beneath; the first screen alone has the button to play.
  * Everything follows the scroll itself, so a drag part-way shows the change part-way; let go and it glides to rest on a
  * stage (useStageSnap). Each step tints the ground in its region's colour. At the end the emblem goes and Join us takes
  * its place, its links springing in one by one; then the B forms again and the story goes round from the top
@@ -218,8 +210,9 @@ export default function Story() {
     const raw = useTransform(scrollY, y => y / (window.innerHeight * STEP / 100));
     // eased a touch behind the finger, so a jerky scroll or a wheel's steps still read as one glide
     const s = useSpring(raw, { stiffness: 170, damping: 30, mass: 0.6, restDelta: 0.0005 });
-    // the button stays put through the story, goes as the emblem does before Join us, and comes back with the B
-    const action = useTransform(s, v => v < LAST ? clamp((LAST - 0.2 - v) / 0.4) : clamp((v - (LOOP - 0.6)) / 0.4));
+    // the button is the first screen's alone: it goes as the story sets off, and comes back with the B at the loop (its
+    // place is kept, so nothing else moves)
+    const action = useTransform(s, v => Math.max(clamp((0.6 - v) / 0.4), clamp((v - (LOOP - 0.6)) / 0.4)));
     // going round to the top: the eased story jumps with the page, rather than running back through every stage
     const onLoop = useRef(() => s.jump(0));
     const glideTo = useStageSnap(onLoop);
@@ -228,11 +221,16 @@ export default function Story() {
         glideTo(Math.min(LOOP, Math.floor(now + 0.1) + 1));
     };
 
-    // the button speaks for the stage on screen, and takes you to its part of the app
-    const [current, setCurrent] = useState(0);
-    useMotionValueEvent(s, "change", v => setCurrent(stageAt(v)));
-    const step = STAGES[current], cta = step.action ?? PLAY;
-    const open = (to: string) => to === "play" ? window.location.hash = PLAY_ROUTE : toast(`Opens ${to}`);
+    const play = () => { window.location.hash = PLAY_ROUTE; };
+
+    // a visit always opens on the B, never part-way through where a reload left the page
+    useEffect(() => {
+        const was = history.scrollRestoration;
+        history.scrollRestoration = "manual";
+        window.scrollTo(0, 0);
+        s.jump(0);
+        return () => { history.scrollRestoration = was; };
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     return <div className="relative" style={{ height: `calc(100svh + ${LOOP * STEP}svh)` }}>
         <div className="sticky top-0 flex h-svh flex-col overflow-hidden">
@@ -250,7 +248,12 @@ export default function Story() {
                                     <>Explore the Bible <em>with a daily passage-guessing game</em></>)}
                             </Fade>)}
                             {STAGES.map((st, i) => st.text ? <Fade key={i} at={i} s={s} className="absolute inset-x-0 top-0">
-                                <h2 className="home-tagline !mt-0">{accented(st.text)}</h2>
+                                {/* the phase above the line: its number in the mono (in the step's colour), then its name */}
+                                <p className="mb-2.5 flex items-center justify-center gap-2.5 text-[14px] leading-5 text-ui-muted">
+                                    <span className="font-mono font-medium tabular-nums" style={{ color: st.colour ?? playTheme.faint }}>{st.number}</span>
+                                    {st.phase}
+                                </p>
+                                <h2 className="home-tagline !mt-0">{styled(st.text!)}</h2>
                             </Fade> : null)}
                         </div>
 
@@ -263,20 +266,8 @@ export default function Story() {
                         </div>
                     </div>
                     <motion.div className="home-hero-actions" style={{ opacity: action, visibility: useTransform(action, a => a > 0 ? "visible" : "hidden") }}>
-                        {/* the hero's Play, centred; a step's number at the left in the mono, its name in the middle, an arrow to it at the right */}
-                        <button type="button" onClick={() => open(cta.to)} aria-label={step.number ? `${step.number} ${cta.label}` : cta.label}
-                                className="ui-button ui-primary h-12 w-full max-w-[18rem] overflow-hidden !px-4 text-[15px]">
-                            <AnimatePresence mode="popLayout" initial={false}>
-                                <motion.span key={current} aria-hidden="true" className="grid w-full grid-cols-[2.5rem_1fr_2.5rem] items-center"
-                                             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-                                             transition={{ duration: 0.22, ease: [0.2, 0.7, 0.2, 1] }}>
-                                    <span className="justify-self-start font-mono text-[13px] font-medium tabular-nums opacity-50">{step.number}</span>
-                                    <span className="flex items-center justify-center gap-2">
-                                        {step.number ? null : <PlayIcon className="size-[18px]" strokeWidth={2}/>}{cta.label}
-                                    </span>
-                                    {step.number ? <ArrowRightIcon className="size-[18px] justify-self-end opacity-60" strokeWidth={2}/> : <span/>}
-                                </motion.span>
-                            </AnimatePresence>
+                        <button type="button" onClick={play} className="ui-button ui-primary h-12 w-full max-w-[18rem] text-[15px]">
+                            <PlayIcon className="size-[18px]" strokeWidth={2}/>Play today&apos;s chapter
                         </button>
                     </motion.div>
                 </div>
