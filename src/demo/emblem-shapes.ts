@@ -122,6 +122,17 @@ function place(previous: Placed[], shape: Shape): Placed[] {
     const pairs = from.flatMap((f, k) => to.map((t, s) => ({ k, s, d: Math.hypot(f[0] - t[0], f[1] - t[1]) }))).sort((a, b) => a.d - b.d);
     const stoneSlot = new Array<number>(previous.length).fill(-1), taken = new Set<number>();
     for (const { k, s } of pairs) if (stoneSlot[k] < 0 && !taken.has(s)) { stoneSlot[k] = s; taken.add(s); }
+    // then untangle: swap any two stones' slots while that shortens their journeys (squared, so no one travels far),
+    // which leaves few paths crossing
+    const cost = (k: number, s: number) => (from[k][0] - to[s][0]) ** 2 + (from[k][1] - to[s][1]) ** 2;
+    for (let pass = 0, better = true; better && pass < 40; pass++) {
+        better = false;
+        for (let a = 0; a < stoneSlot.length; a++) for (let b = a + 1; b < stoneSlot.length; b++) {
+            const sa = stoneSlot[a], sb = stoneSlot[b];
+            if (sa < 0 || sb < 0) continue;
+            if (cost(a, sb) + cost(b, sa) < cost(a, sa) + cost(b, sb) - 1e-6) { stoneSlot[a] = sb; stoneSlot[b] = sa; better = true; }
+        }
+    }
     return previous.map((p, k) => {
         if (stoneSlot[k] >= 0) {
             const slot = shape[stoneSlot[k]];

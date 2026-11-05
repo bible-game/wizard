@@ -88,23 +88,26 @@ function Logos({ s }: { s: MotionValue<number> }) {
     };
     const [current, setCurrent] = useState(0);
     useMotionValueEvent(offset, "change", o => setCurrent(((Math.round(o / SPACING) % LINKS.length) + LINKS.length) % LINKS.length));
-    const drift = useTransform(run, r => r * 60);
 
-    return <div ref={box} className="pointer-events-none absolute inset-0 overflow-hidden">
-        {/* faint circles, as zogreo.org's, drifting against the icons */}
-        <motion.svg aria-hidden="true" className="absolute inset-0 size-full text-ui-line" style={{ x: drift }}>
-            <circle cx="-8%" cy="58%" r="46%" fill="none" stroke="currentColor" strokeWidth={1}/>
-            <circle cx="104%" cy="28%" r="34%" fill="none" stroke="currentColor" strokeWidth={1} opacity={0.7}/>
-            <circle cx="88%" cy="104%" r="40%" fill="none" stroke="currentColor" strokeWidth={1} opacity={0.6}/>
-        </motion.svg>
-        <div className="absolute inset-x-0 top-[48%] h-[132px] -translate-y-1/2">
+    return <div ref={box} className="pointer-events-none absolute inset-x-0 bottom-0 top-[64px] overflow-hidden">
+        <div className="absolute inset-x-0 top-[calc(50%-66px)] h-[132px]">
             {tiles.map(tile => <Tile key={tile.j} offset={offset} x={o => xOf(tile.j, o)} centre={width / 2} {...tile}/>)}
         </div>
         {/* which of the four is in the middle */}
-        <div aria-hidden="true" className="absolute inset-x-0 top-[calc(48%+84px)] flex justify-center gap-2">
+        <div aria-hidden="true" className="absolute inset-x-0 top-[calc(50%+74px)] flex justify-center gap-2">
             {LINKS.map((link, i) => <span key={link.label} className={`size-1.5 rounded-full transition-colors ${i === current ? "bg-ui-text" : "bg-ui-text/25"}`}/>)}
         </div>
     </div>;
+}
+
+/** Faint circles, as zogreo.org's, drifting against the icons as the scroll carries them */
+function Circles({ s }: { s: MotionValue<number> }) {
+    const drift = useTransform(s, v => clamp((v - RUN_FROM) / (RUN_TO - RUN_FROM)) * 60);
+    return <motion.svg aria-hidden="true" className="absolute inset-0 size-full text-ui-line" style={{ x: drift }}>
+        <circle cx="-8%" cy="58%" r="46%" fill="none" stroke="currentColor" strokeWidth={1}/>
+        <circle cx="104%" cy="28%" r="34%" fill="none" stroke="currentColor" strokeWidth={1} opacity={0.7}/>
+        <circle cx="88%" cy="104%" r="40%" fill="none" stroke="currentColor" strokeWidth={1} opacity={0.6}/>
+    </motion.svg>;
 }
 
 function Tile({ offset, x, centre, label, icon: Icon, colour }: {
@@ -139,7 +142,13 @@ export default function Story() {
     const raw = useTransform(scrollY, y => y / (window.innerHeight * STEP / 100));
     // eased a touch behind the finger, so a jerky scroll or a wheel's steps still read as one glide
     const s = useSpring(raw, { stiffness: 170, damping: 30, mass: 0.6, restDelta: 0.0005 });
-    const cue = useTransform(s, v => clamp(1 - v * 4));
+    // the nudge stays until the page's end, fading over its last stretch
+    const cue = useTransform(s, v => clamp((RUN_TO - v) * 2.5));
+    const next = () => {
+        const step = window.innerHeight * STEP / 100, now = window.scrollY / step;
+        const to = now < LAST - 0.1 ? Math.floor(now + 0.1) + 1 : RUN_TO;
+        window.scrollTo({ top: to * step, behavior: "smooth" });
+    };
 
     useEffect(() => {
         const html = document.documentElement;
@@ -155,44 +164,47 @@ export default function Story() {
 
         <div className="sticky top-0 flex h-svh flex-col overflow-hidden">
             <Header stars={0}/>
+            {/* Join us's faint circles, across the whole screen */}
+            <Fade at={LAST} s={s} stay className="pointer-events-none absolute inset-0"><Circles s={s}/></Fade>
+
             <main className="relative mx-auto flex w-full max-w-[36rem] flex-1 flex-col">
-                {/* the emblem, then the stage's words under it */}
-                <div className="flex flex-1 flex-col items-center justify-center gap-10 px-6 pb-[88px] text-center max-[440px]:px-4">
-                    <StoryEmblem stages={stages} at={s}/>
-                    <div className="relative h-[164px] w-full max-w-[24rem]">
-                        <Fade at={0} s={s} className="absolute inset-x-0 top-0 grid justify-items-center gap-10">
-                            <h1 className="home-hero-text home-tagline !mt-0">Explore the Bible <em>with a daily passage-guessing game</em></h1>
-                            <div className="home-hero-actions">
-                                <button type="button" onClick={play} className="ui-button ui-primary h-12 w-full max-w-[18rem] text-[15px]">
-                                    <PlayIcon className="size-[18px]" strokeWidth={2}/>Play today&apos;s chapter
-                                </button>
-                            </div>
-                        </Fade>
-                        {STAGES.map((st, i) => st.text ? <Fade key={i} at={i} s={s} className="absolute inset-x-0 top-0 grid gap-2.5">
-                            <p className="flex items-baseline justify-center gap-2.5 text-[15px] font-medium text-ui-muted">
-                                <span className="font-mono text-[13px] text-play-gold">{st.number}</span>{st.label}
-                            </p>
-                            <h2 className="text-balance text-[28px] font-light leading-[1.15] text-ui-text">{st.text}</h2>
-                        </Fade> : null)}
+                {/* every stage laid out as the hero is: the emblem, two lines of words, then the button, which stays put */}
+                <div className="flex flex-1 flex-col items-center justify-center gap-10 px-6 pb-[72px] text-center max-[440px]:px-4">
+                    <div className="relative flex w-full flex-col items-center gap-10">
+                        <StoryEmblem stages={stages} at={s}/>
+                        <div className="relative h-[92px] w-full max-w-[24rem]">
+                            <Fade at={0} s={s} className="absolute inset-x-0 top-0">
+                                <h1 className="home-hero-text home-tagline !mt-0">Explore the Bible <em>with a daily passage-guessing game</em></h1>
+                            </Fade>
+                            {STAGES.map((st, i) => st.text ? <Fade key={i} at={i} s={s} className="absolute inset-x-0 top-0">
+                                <h2 className="home-tagline !mt-0">
+                                    {st.text}
+                                    <em><span className="mr-2 font-mono text-[14px] not-italic text-play-gold">{st.number}</span>{st.label}</em>
+                                </h2>
+                            </Fade> : null)}
+                        </div>
+
+                        {/* the end: the emblem goes, and Join us takes its place, in the same space */}
+                        <div className="pointer-events-none absolute inset-y-0 left-1/2 w-screen max-w-[36rem] -translate-x-1/2">
+                            {/* (the Fade moves itself, so it sits inside the box that centres it) */}
+                            <Fade at={LAST} s={s} stay className="absolute inset-0">
+                                <div className="absolute inset-x-0 top-0 px-6 text-center">
+                                    <h2 className="home-tagline !mt-0 text-[34px] text-ui-text">Join us</h2>
+                                </div>
+                                <Logos s={s}/>
+                            </Fade>
+                        </div>
+                    </div>
+                    <div className="home-hero-actions">
+                        <button type="button" onClick={play} className="ui-button ui-primary h-12 w-full max-w-[18rem] text-[15px]">
+                            <PlayIcon className="size-[18px]" strokeWidth={2}/>Play today&apos;s chapter
+                        </button>
                     </div>
                 </div>
 
-                {/* the end: the emblem has gone, and Join us takes its place */}
-                <Fade at={LAST} s={s} stay className="pointer-events-none absolute inset-0">
-                    <Logos s={s}/>
-                    <div className="absolute inset-x-0 top-[16%] grid gap-3 px-6 text-center">
-                        <h2 className="text-[34px] font-light leading-[1.1]">Join us</h2>
-                    </div>
-                    <div className="absolute inset-x-0 bottom-[12%] flex justify-center">
-                        <button type="button" onClick={play} className="pointer-events-auto inline-flex h-11 items-center gap-2 rounded-full bg-ui-raised px-5 font-mono text-[12px] font-medium uppercase tracking-[0.16em] text-ui-text ring-1 ring-ui-line hover:bg-ui-line">
-                            Play today&apos;s chapter<span aria-hidden="true" className="size-1 rounded-full bg-ui-text"/>
-                        </button>
-                    </div>
-                </Fade>
-
-                {/* the nudge to scroll, only on the hero */}
+                {/* the nudge to scroll, on to the next stage, until the bottom */}
                 <motion.div className="absolute inset-x-0 bottom-0 flex justify-center" style={{ opacity: cue, pointerEvents: useTransform(cue, c => c > 0.5 ? "auto" : "none") }}>
-                    <a href="#" onClick={e => { e.preventDefault(); window.scrollTo({ top: window.innerHeight * STEP / 100, behavior: "smooth" }); }} className="home-hero-cue">
+                    <a href="#" onClick={e => { e.preventDefault(); next(); }} className="home-hero-cue">
                         Scroll down
                         <ChevronDownIcon className="size-5" aria-hidden="true"/>
                     </a>

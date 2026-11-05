@@ -3,14 +3,16 @@ import { MotionValue, useMotionValueEvent } from "framer-motion";
 import { centroid, HEIGHT, mix, morphCells, type Point, rounded, WIDTH } from "@/core/style/mosaic";
 import type { Placed } from "@/demo/emblem-shapes";
 
-const CELL_SHARE = 0.6; // of a change each stone spends on its way; the rest staggers them top to bottom
-const CLOSE = 0.25, OPEN = 0.75, STAR = 0.16; // each stone closes to a star, glides, then opens (as use-mosaic-morph.ts)
+const CELL_SHARE = 0.55; // of a change each stone spends on its way; the rest staggers them, top first
+/** How small a stone gets mid-flight, how far its path bows to one side, and how far it turns on the way */
+const SHRINK = 0.5, BOW = 0.28, TURN = 0.5;
 /** How much of the scroll either side of a stage holds its shape still, so a stage reads whole before it starts to go */
 const HOLD = 0.2;
 /** An unlit chapter on the stats shape */
 const DIM = "#4a5068";
 
-const glide = (t: number) => (1 - Math.cos(Math.PI * t)) / 2;
+/** Eases in and out, gently at both ends */
+const ease = (t: number) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 const clamp = (t: number) => Math.min(1, Math.max(0, t));
 
 type Layer = "bloom" | "stone" | "core";
@@ -31,9 +33,10 @@ function Cells({ layer }: { layer: Layer }) {
 /**
  * The hero's emblem, as the webapp's GlowingCross draws it (glass stones, a white-hot core and a glow), moved by the
  * scroll rather than a loop. `at` is where the story is, in stages (1.5: half-way from the second to the third); the
- * stones stand in that stage's shape (from emblem-shapes.ts) or, between two, are that far on their way: each closes to a
- * star, glides and opens, in a wave from the top, so scrolling back plays it backwards and stopping part-way holds it
- * there. Each stage holds still for a little scroll either side
+ * stones stand in that stage's shape (from emblem-shapes.ts) or, between two, are that far on their way. Each stone
+ * eases off, shrinking to half and turning a little as it goes, along a path that bows to one side, so together they
+ * swirl into the new shape rather than cross; they leave in a wave from the top. Scrolling back plays it backwards and
+ * stopping part-way holds it there. Each stage holds still for a little scroll either side
  */
 export default function StoryEmblem({ stages, at, height = 168 }: { stages: Placed[][]; at: MotionValue<number>; height?: number }) {
     const root = useRef<HTMLDivElement>(null);
@@ -50,12 +53,20 @@ export default function StoryEmblem({ stages, at, height = 168 }: { stages: Plac
         const from = stages[i], to = stages[i + 1], a = looks.current[i], b = looks.current[i + 1];
         morphCells.forEach((_, k) => {
             const local = clamp((t - clamp(a[k].wave) * (1 - CELL_SHARE)) / CELL_SHARE);
-            const g = glide(clamp((local - CLOSE) / (OPEN - CLOSE)));
-            const size = local < CLOSE ? 1 - (1 - STAR) * glide(local / CLOSE) : local > OPEN ? STAR + (1 - STAR) * glide((local - OPEN) / (1 - OPEN)) : STAR;
-            const points = from[k].points.map(([x, y], n) => [x + (to[k].points[n][0] - x) * g, y + (to[k].points[n][1] - y) * g] as Point);
+            // one easing for the whole flight: it eases off, travels, and settles, with no stop on the way
+            const g = ease(local), arc = Math.sin(Math.PI * g);
+            const size = 1 - (1 - SHRINK) * arc;
+            // the path bows to the right of the way it's going, so the stones swirl rather than cut straight across one another
+            const [ax, ay] = centroid(from[k].points), [bx, by] = centroid(to[k].points);
+            const bow: Point = [-(by - ay) * BOW * arc, (bx - ax) * BOW * arc];
+            const turn = TURN * arc * (k % 2 ? 1 : -1), cos = Math.cos(turn), sin = Math.sin(turn);
+            const points = from[k].points.map(([x, y], n) => [x + (to[k].points[n][0] - x) * g + bow[0], y + (to[k].points[n][1] - y) * g + bow[1]] as Point);
             const [cx, cy] = centroid(points);
-            const d = rounded(points.map(([x, y]) => [cx + (x - cx) * size, cy + (y - cy) * size] as Point), 1.3 * size);
-            const opacity = (a[k].opacity + (b[k].opacity - a[k].opacity) * glide(local)).toFixed(3);
+            const d = rounded(points.map(([x, y]) => {
+                const [dx, dy] = [(x - cx) * size, (y - cy) * size];
+                return [cx + dx * cos - dy * sin, cy + dx * sin + dy * cos] as Point;
+            }), 1.3 * size);
+            const opacity = (a[k].opacity + (b[k].opacity - a[k].opacity) * g).toFixed(3);
             const colour = mix(a[k].colour, b[k].colour, g);
             layers.current[k].forEach(el => {
                 el.setAttribute("d", d);
