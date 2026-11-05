@@ -10,6 +10,29 @@ const SHRINK = 0.5, BOW = 0.28, TURN = 0.5;
 const HOLD = 0.2;
 /** An unlit chapter on the stats shape */
 const DIM = "#4a5068";
+/**
+ * The entrance: each stone starts as a point of light scattered round the emblem (RING_IN to RING_OUT from its middle,
+ * in emblem units), then spirals in (SPIN turns of a radian) as it grows into its place, the inner stones first
+ */
+const RING_IN = 55, RING_OUT = 130, SPIN = 2.4, POINT = 0.07;
+/** Each stone's flight, in seconds, and how far its start is put back by its distance from the middle */
+const FLIGHT = 1.5, STAGGER = 1.3;
+/** Deterministic noise in [0, 1) */
+const noise = (i: number, seed: number) => { const n = Math.sin(i * 127.1 + seed * 311.7) * 43758.5453; return n - Math.floor(n); };
+/** Where each stone sets off from: golden-angle spokes, each at its own distance, as offsets from the emblem's middle */
+const SCATTER = morphCells.map((_, k) => {
+    const angle = k * 2.39996 + noise(k, 1) * 0.6, r = RING_IN + (RING_OUT - RING_IN) * noise(k, 2);
+    return [Math.cos(angle) * r, Math.sin(angle) * r] as Point;
+});
+const LATEST = Math.max(...morphCells.map(c => c.entrance));
+/** How far stone k is through its entrance, `t` seconds in: [eased 0-1, raw 0-1] */
+const arrival = (k: number, t: number) => {
+    const raw = clamp((t - morphCells[k].entrance / LATEST * STAGGER) / FLIGHT);
+    return [1 - Math.pow(1 - raw, 3), raw];
+};
+/** When the last stone lands */
+export const ENTRANCE = STAGGER + FLIGHT;
+
 /** How far the emblem leans towards the pointer (degrees), and how far its glow and white core part in depth (emblem units) */
 const LEAN_X = 7, LEAN_Y = 9, DEPTH = 2.2;
 
@@ -26,7 +49,7 @@ function Cells({ layer }: { layer: Layer }) {
             const paint = layer === "core"
                 ? { fill: "none", stroke: "#ffffff", strokeWidth: 0.42, strokeOpacity: 0.75 }
                 : { "data-colour": "", fill: cell.colour.b, fillOpacity: 0.14, stroke: cell.colour.b, strokeWidth: layer === "bloom" ? 1.6 : 1.15 };
-            return <g key={k} className="glowing-cross-cell" style={{ animationDelay: `${cell.entrance}ms` }}>
+            return <g key={k}>
                 <path data-cell={k} data-layer={layer} d={rounded(cell.b)} strokeLinejoin="round" {...paint}/>
             </g>;
         })}
@@ -46,7 +69,6 @@ const nearest = (stones: Stone[], x: number, y: number) =>
 
 /**
  * Each shape's life once it has settled, so a stage that's read whole has something to watch:
- * - the B: a slow shimmer down the letter
  * - the cross: light spreading from where the beams meet
  * - the map: a guess hops across two books and lands on today's chapter, which breathes
  * - the book: a reading light runs along the lines, word by word
@@ -54,7 +76,6 @@ const nearest = (stones: Stone[], x: number, y: number) =>
  * - the stats: the unlit chapters light one by one, a streak building, then rest and begin again
  */
 const LIVES: Partial<Record<ShapeName, Living>> = {
-    b: stones => (k, t) => ({ glow: 0.22 * (0.5 + 0.5 * Math.sin(t * 1.8 - stones[k].y / 14)), light: 0 }),
     cross: stones => {
         const centre = shown(stones).reduce((c, s, _, all) => [c[0] + s.x / all.length, c[1] + s.y / all.length], [0, 0]);
         const far = Math.max(...shown(stones).map(s => Math.hypot(s.x - centre[0], s.y - centre[1])));
@@ -110,7 +131,8 @@ const LIVES: Partial<Record<ShapeName, Living>> = {
  * swirl into the new shape rather than cross; they leave in a wave from the top. Scrolling back plays it backwards and
  * stopping part-way holds it there. Each stage holds still for a little scroll either side.
  *
- * At rest it lives: a shine sweeps across the glass as a shape lands, then the shape plays its own small loop (LIVES).
+ * It enters from points of light scattered round it, spiralling in to form the B, the inner stones first (SCATTER).
+ * At rest it lives: each step's shape plays its own small loop (LIVES).
  * It leans a little towards the pointer, its glow set deeper and its white core nearer, so it reads as a window with
  * depth; on touch screens it drifts on its own. Under reduced motion, none of that: it only follows the scroll
  */
@@ -128,8 +150,11 @@ export default function StoryEmblem({ stages, names, at, height = 168 }: { stage
         return living ? living(stones) : undefined;
     }), [stages, names]);
 
-    /** The shape as the scroll has it, and the life at rest on top: `rest` (0-1) is how settled, `t` how long since */
-    const draw = (s: number, rest: number, t: number) => {
+    /**
+     * The shape as the scroll has it, and the life at rest on top: `rest` (0-1) is how settled, `t` how long since;
+     * `intro` is how far into the entrance (seconds; past ENTRANCE, it's done)
+     */
+    const draw = (s: number, rest: number, t: number, intro = ENTRANCE) => {
         if (!layers.current.length) return;
         const last = stages.length - 1;
         const i = Math.min(last - 1, Math.max(0, Math.floor(s)));
@@ -137,8 +162,6 @@ export default function StoryEmblem({ stages, names, at, height = 168 }: { stage
         const from = stages[i], to = stages[i + 1], a = looks.current[i], b = looks.current[i + 1];
         const settled = Math.round(Math.min(last, Math.max(0, s)));
         const life = rest > 0 ? lives[settled] : undefined;
-        // the shine: a band of light across the glass, top left to bottom right, once, as the shape lands
-        const shineAt = rest > 0 ? (t - 0.05) / 0.85 * 1.5 - 0.25 : -1;
         morphCells.forEach((_, k) => {
             const local = clamp((tt - clamp(a[k].wave) * (1 - CELL_SHARE)) / CELL_SHARE);
             // one easing for the whole flight: it eases off, travels, and settles, with no stop on the way
@@ -150,16 +173,23 @@ export default function StoryEmblem({ stages, names, at, height = 168 }: { stage
             const turn = TURN * arc * (k % 2 ? 1 : -1), cos = Math.cos(turn), sin = Math.sin(turn);
             const points = from[k].points.map(([x, y], n) => [x + (to[k].points[n][0] - x) * g + bow[0], y + (to[k].points[n][1] - y) * g + bow[1]] as Point);
             const [cx, cy] = centroid(points);
+            // the entrance: from its point of light, round the spiral, growing into place
+            const [e, raw] = intro < ENTRANCE ? arrival(k, intro) : [1, 1];
+            const [ox, oy] = [WIDTH / 2 + SCATTER[k][0] - cx, HEIGHT / 2 + SCATTER[k][1] - cy];
+            const spin = SPIN * (1 - e), far = 1 - e;
+            const [px, py] = [cx + (ox * Math.cos(spin) - oy * Math.sin(spin)) * far, cy + (ox * Math.sin(spin) + oy * Math.cos(spin)) * far];
+            const grow = size * (POINT + (1 - POINT) * e), twist = turn + spin * 1.5;
+            const [tc, ts] = [Math.cos(twist), Math.sin(twist)];
             const d = rounded(points.map(([x, y]) => {
-                const [dx, dy] = [(x - cx) * size, (y - cy) * size];
-                return [cx + dx * cos - dy * sin, cy + dx * sin + dy * cos] as Point;
-            }), 1.3 * size);
-            const opacity = (a[k].opacity + (b[k].opacity - a[k].opacity) * g).toFixed(3);
+                const [dx, dy] = [(x - cx) * grow, (y - cy) * grow];
+                return [px + dx * tc - dy * ts, py + dx * ts + dy * tc] as Point;
+            }), 1.3 * grow);
+            const opacity = ((a[k].opacity + (b[k].opacity - a[k].opacity) * g) * clamp(raw * 5)).toFixed(3);
             let colour = mix(a[k].colour, b[k].colour, g);
 
             const { glow, light } = life ? life(k, t) : still;
-            const shine = shineAt > -1 ? bell((cx + 11) / 82 * 0.6 + cy / 96 * 0.4 - shineAt, 0.006) : 0;
-            const lift = clamp((glow + shine) * rest);
+            // a point of light in flight burns bright, cooling as it lands
+            const lift = Math.max(clamp(glow * rest), 1 - e);
             if (light > 0) colour = mix(colour, morphCells[k].colour.b, light * rest);
 
             const el = layers.current[k];
@@ -172,9 +202,8 @@ export default function StoryEmblem({ stages, names, at, height = 168 }: { stage
             el.stone.setAttribute("fill-opacity", (0.14 + 0.42 * lift).toFixed(3));
             el.bloom.setAttribute("stroke-width", (1.6 + 1.4 * lift).toFixed(3));
             el.core.setAttribute("stroke-opacity", (0.75 + 0.25 * lift).toFixed(3));
-            el.core.setAttribute("stroke-width", (0.42 + 0.35 * shine * rest).toFixed(3));
         });
-        bloom.current?.setAttribute("opacity", (0.7 + 0.2 * Math.sin(Math.PI * tt)).toFixed(3));
+        bloom.current?.setAttribute("opacity", (0.7 + 0.2 * Math.sin(Math.PI * tt) + (intro < ENTRANCE ? 0.25 * (1 - intro / ENTRANCE) : 0)).toFixed(3));
     };
 
     useEffect(() => {
@@ -185,9 +214,9 @@ export default function StoryEmblem({ stages, names, at, height = 168 }: { stage
         });
         bloom.current = element.querySelector("[data-bloom]");
         depth.current = { bloom: element.querySelector("[data-depth=bloom]"), core: element.querySelector("[data-depth=core]") };
-        draw(at.get(), 0, 0);
-
-        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+        const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        draw(at.get(), 0, 0, reduce ? ENTRANCE : 0);
+        if (reduce) return;
 
         // the lean: towards the pointer where there is one; on touch, a slow drift of its own
         const fine = window.matchMedia("(pointer: fine)").matches;
@@ -196,14 +225,18 @@ export default function StoryEmblem({ stages, names, at, height = 168 }: { stage
         const onLeave = () => { aim.x = 0; aim.y = 0; };
         if (fine) { window.addEventListener("pointermove", onPointer); document.addEventListener("pointerleave", onLeave); }
 
-        let frame = 0, settledOn = -1, since = 0;
+        let frame = 0, settledOn = -1, since = 0, born = -1;
         const tick = (now: number) => {
+            if (born < 0) born = now;
+            const intro = (now - born) / 1000;
             const s = at.get();
             const stage = Math.round(s);
             const rest = clamp((HOLD - Math.abs(s - stage)) / (HOLD * 0.6));
             if (rest > 0 && settledOn !== stage) { settledOn = stage; since = now; }
             if (rest === 0) settledOn = -1;
-            draw(s, rest, rest > 0 ? (now - since) / 1000 : 0);
+            // the life waits for the entrance's last stone to land
+            const landed = born + (ENTRANCE - 0.35) * 1000;
+            draw(s, rest, rest > 0 ? Math.max(0, now - Math.max(since, landed)) / 1000 : 0, intro);
 
             if (!fine) { aim.x = Math.sin(now / 2600) * 0.35; aim.y = Math.cos(now / 3300) * 0.3; }
             lean.x += (aim.x - lean.x) * 0.06; lean.y += (aim.y - lean.y) * 0.06;

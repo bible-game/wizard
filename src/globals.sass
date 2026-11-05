@@ -882,21 +882,3 @@ input:-webkit-autofill:focus
   font-weight: 400
   letter-spacing: -0.01em
   color: #d4b455
-
-// The finale clue's caret: a thin bar in the gold, blinking while it waits, gone a moment after the clue is typed
-.story-caret
-  display: inline-block
-  width: 2px
-  height: 1.05em
-  margin-left: 2px
-  vertical-align: -0.15em
-  background: #d4b455
-  animation: story-caret 1s steps(1) infinite
-  &[data-done]
-    animation: story-caret 1s steps(1) 3 forwards
-
-@keyframes story-caret
-  50%
-    opacity: 0
-  100%
-    opacity: 0
