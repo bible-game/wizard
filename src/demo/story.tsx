@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, MotionValue, useScroll, useSpring, useTransform } from "framer-motion";
 import { ChevronDownIcon, MailIcon, PlayIcon } from "lucide-react";
 import { SiDiscord, SiGithub } from "@icons-pack/react-simple-icons";
@@ -14,11 +14,11 @@ type Stage = { shape: ShapeName; number?: string; phase?: string; text?: string;
 
 /**
  * The story, a stage per stop of the scroll: the hero, what Bible Game is for, its three daily steps, the record they
- * leave, then Join us; and round again. Each step in a region's colour, in the order the map runs
+ * leave, then Join us, where the page ends. Each step in a region's colour, in the order the map runs
  */
 const STAGES: Stage[] = [
     { shape: "b" },
-    { shape: "cross", number: "00", phase: "Purpose", text: "Explore the human story" },
+    { shape: "cross", number: "00", phase: "Purpose", text: "Understand the human story" },
     { shape: "map", number: "01", phase: "Play", text: "Visualise the structure", colour: playTheme.teal },
     { shape: "book", number: "02", phase: "Read", text: "Digest today’s chapter", colour: playTheme.purple },
     { shape: "question", number: "03", phase: "Study", text: "Stretch your understanding", colour: playTheme.rose },
@@ -27,13 +27,8 @@ const STAGES: Stage[] = [
 ];
 const LAST = STAGES.length - 1;
 
-/** How far the page scrolls from one stage to the next, as a share of the screen's height */
+/** How far the page scrolls from one stage to the next, as a share of the screen's (small) height */
 const STEP = 70;
-/**
- * The end of the page, one stage on from Join us, where the B has formed again as at the top: arriving here, the page
- * goes back to the top, which looks the same, so the story runs round and round
- */
-const LOOP = LAST + 1;
 
 /** LinkedIn's mark, which Simple Icons no longer carries: its "in", set bold */
 const LinkedIn = ({ size }: { size: number }) => <span aria-hidden="true" className="font-sans font-bold leading-none tracking-[-0.04em]" style={{ fontSize: size * 0.92 }}>in</span>;
@@ -51,20 +46,19 @@ const LINKS = [
 
 const clamp = (t: number) => Math.min(1, Math.max(0, t));
 
-
-
 /**
  * Shown at its stage, and by the scroll: it fades and rises in as the story nears it, and on out as it leaves, so a
- * part-way scroll shows it part-way. `until` holds it shown from its stage to there (Join us, through the logos' run)
+ * part-way scroll shows it part-way. `until` holds it shown from its stage to there. A `copy` is hidden from screen
+ * readers, which have the story as text already
  */
-function Fade({ at, s, until = at, className, children }: { at: number; s: MotionValue<number>; until?: number; className?: string; children: React.ReactNode }) {
+function Fade({ at, s, until = at, copy, className, children }: { at: number; s: MotionValue<number>; until?: number; copy?: boolean; className?: string; children: React.ReactNode }) {
     const off = (v: number) => v < at ? at - v : v > until ? until - v : 0;
     const near = (v: number) => clamp(1 - Math.abs(off(v)) * 2.4);
     const opacity = useTransform(s, near);
     const y = useTransform(s, v => off(v) * 28);
     const visibility = useTransform(s, v => near(v) > 0 ? "visible" : "hidden");
     const pointerEvents = useTransform(s, v => near(v) > 0.6 ? "auto" : "none");
-    return <motion.div className={className} style={{ opacity, y, visibility, pointerEvents }}>{children}</motion.div>;
+    return <motion.div aria-hidden={copy || undefined} className={className} style={{ opacity, y, visibility, pointerEvents }}>{children}</motion.div>;
 }
 
 /** How far apart the icons arrive, and how long each takes, in stages of scroll; it begins this far before Join us */
@@ -84,20 +78,22 @@ function Platform({ s, i, label, icon: Icon, colour }: { s: MotionValue<number>;
     const scale = useTransform(e, t => 0.55 + 0.45 * t);
     const rotate = useTransform(e, t => (1 - t) * (i % 2 ? 12 : -12));
     const opacity = useTransform(p, t => clamp(t * 2.5));
+    // on hover or keyboard focus the tile comes forward a touch and catches a glow in its own colour, with a faint light
+    // edge, and its name brightens; pressed, it gives a little
     return <motion.button type="button" onClick={() => toast(`Opens ${label}`)} aria-label={label} style={{ y, scale, rotate, opacity }}
-                          className="group grid justify-items-center gap-2.5">
-        <span className="flex size-[clamp(60px,16vw,76px)] items-center justify-center rounded-[22%] text-white shadow-[0_14px_34px_rgba(0,0,0,0.4)] transition-transform duration-200 group-hover:-translate-y-1 group-active:scale-95"
-              style={{ background: colour }}>
+                          className="group grid justify-items-center gap-2.5 rounded-[18px] focus-visible:!outline-none">
+        <span className="flex size-[clamp(60px,16vw,76px)] items-center justify-center rounded-[22%] text-white shadow-[0_14px_34px_-10px_rgba(0,0,0,0.55)] transition-[transform,box-shadow] duration-300 ease-out group-hover:scale-[1.06] group-hover:[box-shadow:0_0_0_1px_rgba(255,255,255,0.22),0_16px_40px_-8px_color-mix(in_srgb,var(--tile)_75%,transparent)] group-focus-visible:scale-[1.06] group-focus-visible:[box-shadow:0_0_0_2px_var(--ui-text),0_16px_40px_-8px_color-mix(in_srgb,var(--tile)_75%,transparent)] group-active:scale-[0.97] group-active:duration-100"
+              style={{ background: colour, "--tile": colour } as React.CSSProperties}>
             <Icon size={34}/>
         </span>
-        <span className="text-[13px] text-ui-muted transition-colors group-hover:text-ui-text">{label}</span>
+        <span className="text-[13px] text-ui-muted transition-colors duration-300 group-hover:text-ui-text group-focus-visible:text-ui-text">{label}</span>
     </motion.button>;
 }
 
 /** Join us: the four places to find us in a row, each arriving on the scroll */
 function JoinUs({ s }: { s: MotionValue<number> }) {
     return <div className="absolute inset-x-0 top-0 flex flex-col items-center gap-12 px-6 text-center max-[440px]:px-4">
-        <h2 className="home-tagline !mt-0 text-[34px]">Join us</h2>
+        <h2 className="home-tagline !mt-0 !text-[20px]">Get Involved</h2>
         <div className="flex w-full justify-center gap-[clamp(16px,5vw,32px)]">
             {LINKS.map((link, i) => <Platform key={link.label} s={s} i={i} {...link}/>)}
         </div>
@@ -116,144 +112,100 @@ function Tint({ s, at, colour }: { s: MotionValue<number>; at: number; colour: s
     }}/>;
 }
 
-/** One stage's worth of scroll, in pixels */
-const stepPx = () => window.innerHeight * STEP / 100;
-/** How far into the next stage (as a share of a stage) a scroll has to go for the story to carry on to it */
-const NUDGE = 0.18;
-/** The glide's time: a short hop is quick, a long one takes longer, but never drags */
-const glideTime = (px: number) => Math.min(950, 420 + px * 0.3);
-/** In gently, out slow: it gathers, then settles into place */
-const settle = (t: number) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-
-/**
- * Comes to rest on a stage, as a weighted object would, after sloshseltzer.com: once a scroll lets go (the wheel, the
- * finger and its momentum all still), the page glides to a stage, the next one in the scroll's direction if it went a
- * little way (NUDGE) towards it, else back to the one it left. So a small push turns the page one stage, a fling
- * carries on over several, and every stop lands square, where a shape's life plays out; past Join us, it goes round to
- * the top. Any wheel, touch or key stops a glide at once, so it never fights the hand.
- * Returns a glide to a stage, for the cue. `onLoop` is told when the page goes round to the top
- */
-function useStageSnap(onLoop: React.RefObject<() => void>) {
-    const glide = useRef<(stage: number) => void>(() => {});
-    useEffect(() => {
-        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-            glide.current = stage => window.scrollTo({ top: stage * stepPx() });
-            return;
-        }
-        let timer = 0, frame = 0, gliding = false, touching = false, lastY = window.scrollY, heading = 0;
-        const stop = () => { cancelAnimationFrame(frame); gliding = false; };
-        glide.current = stage => {
-            stop();
-            const from = window.scrollY, to = stage * stepPx(), distance = to - from;
-            if (Math.abs(distance) < 1) return;
-            const start = performance.now(), time = glideTime(Math.abs(distance));
-            gliding = true;
-            const step = (now: number) => {
-                const t = Math.min(1, (now - start) / time);
-                window.scrollTo(0, from + distance * settle(t));
-                if (t < 1) frame = requestAnimationFrame(step); else { gliding = false; lastY = window.scrollY; }
-            };
-            frame = requestAnimationFrame(step);
-        };
-        const rest = () => {
-            if (touching || gliding) return;
-            const at = window.scrollY / stepPx();
-            const below = Math.floor(at), into = at - below;
-            const to = heading > 0 ? (into > NUDGE ? below + 1 : below) : heading < 0 ? (into < 1 - NUDGE ? below : below + 1) : Math.round(at);
-            if (Math.abs(to - at) * stepPx() > 1) glide.current(Math.min(LOOP, Math.max(0, to)));
-        };
-        const onScroll = () => {
-            // round again: the end of the page shows what the top does, so going back there is seamless
-            if (window.scrollY >= LOOP * stepPx() - 1) { stop(); window.scrollTo(0, 0); lastY = 0; heading = 0; onLoop.current(); return; }
-            if (gliding) return;
-            const y = window.scrollY;
-            if (y !== lastY) heading = Math.sign(y - lastY);
-            lastY = y;
-            clearTimeout(timer);
-            timer = window.setTimeout(rest, 140);
-        };
-        const onHand = () => { if (gliding) stop(); };
-        const onTouch = (e: TouchEvent) => { touching = e.type === "touchstart"; onHand(); if (!touching) { clearTimeout(timer); timer = window.setTimeout(rest, 160); } };
-        window.addEventListener("scroll", onScroll, { passive: true });
-        window.addEventListener("wheel", onHand, { passive: true });
-        window.addEventListener("keydown", onHand);
-        window.addEventListener("touchstart", onTouch, { passive: true });
-        window.addEventListener("touchend", onTouch, { passive: true });
-        return () => {
-            stop(); clearTimeout(timer);
-            window.removeEventListener("scroll", onScroll);
-            window.removeEventListener("wheel", onHand);
-            window.removeEventListener("keydown", onHand);
-            window.removeEventListener("touchstart", onTouch);
-            window.removeEventListener("touchend", onTouch);
-        };
-    }, []);
-    return (stage: number) => glide.current(stage);
-}
+/** The footer's links (the app's legal pages) */
+const FOOTER = ["About", "Privacy", "Cookies"];
 
 /**
  * Home as a story told in one place, after zogreo.org: the screen stays put while the scroll moves it on. The emblem
  * in the middle becomes each stage's picture (the B, the cross, the grid map, a book, a question, the lit chapters of
- * the stats page), with its line beneath; the first screen alone has the button to play.
- * Everything follows the scroll itself, so a drag part-way shows the change part-way; let go and it glides to rest on a
- * stage (useStageSnap). Each step tints the ground in its region's colour. At the end the emblem goes and Join us takes
- * its place, its links springing in one by one; then the B forms again and the story goes round from the top
+ * the stats page), with its line beneath. The first screen says what Bible Game is and offers today's game; once the
+ * story moves on, Play waits top right in the header instead. Each step tints the ground in its region's colour. At
+ * the end the emblem goes and Join us takes its place, its links springing in one by one, with the footer beneath.
+ *
+ * The browser does the scrolling: each stage is a CSS snap point, so the page always comes to rest on one, with the
+ * platform's own momentum, keyboard paging and accessibility, and nothing here moves the page by itself. The pictures
+ * follow the scroll, eased a touch behind it. Screen readers get the whole story as text (the moving copies are hidden
+ * from them)
  */
 export default function Story() {
-    // the shapes, and the B again after Join us, for the loop
-    const shapes = useMemo(() => [...STAGES.map(st => st.shape), "b" as const], []);
-    const stages = useMemo(() => sequence(shapes), [shapes]);
+    const stages = useMemo(() => sequence(STAGES.map(st => st.shape)), []);
+    // one stage's scroll, measured from the snap points themselves, so the pictures and the resting places always agree
+    // (whatever the browser makes of svh as its toolbars come and go)
+    const marker = useRef<HTMLDivElement>(null);
+    const [step, setStep] = useState(() => window.innerHeight * STEP / 100);
+    useEffect(() => {
+        const measure = () => { if (marker.current?.offsetTop) setStep(marker.current.offsetTop); };
+        measure();
+        window.addEventListener("resize", measure);
+        return () => window.removeEventListener("resize", measure);
+    }, []);
     const { scrollY } = useScroll();
     // where the story is, in stages
-    const raw = useTransform(scrollY, y => y / (window.innerHeight * STEP / 100));
-    // eased a touch behind the finger, so a jerky scroll or a wheel's steps still read as one glide
+    const raw = useTransform(scrollY, y => y / step);
+    // eased a touch behind the scroll, so a wheel's steps still read as one glide
     const s = useSpring(raw, { stiffness: 170, damping: 30, mass: 0.6, restDelta: 0.0005 });
-    // the button is the first screen's alone: it goes as the story sets off, and comes back with the B at the loop (its
-    // place is kept, so nothing else moves)
-    const action = useTransform(s, v => Math.max(clamp((0.6 - v) / 0.4), clamp((v - (LOOP - 0.6)) / 0.4)));
-    // going round to the top: the eased story jumps with the page, rather than running back through every stage
-    const onLoop = useRef(() => s.jump(0));
-    const glideTo = useStageSnap(onLoop);
-    const next = () => {
-        const now = window.scrollY / stepPx();
-        glideTo(Math.min(LOOP, Math.floor(now + 0.1) + 1));
-    };
+    // the header's Play comes in as the first screen's goes; the footer comes in with Join us, the nudge to scroll goes
+    const headerPlay = useTransform(s, v => clamp((v - 0.35) / 0.4));
+    const ending = useTransform(s, v => clamp((v - (LAST - 0.5)) / 0.4));
+    const cue = useTransform(ending, e => 1 - e);
+    const shown = (o: MotionValue<number>) => ({ opacity: o, visibility: useTransform(o, v => v > 0 ? "visible" : "hidden") as MotionValue<string> });
 
     const play = () => { window.location.hash = PLAY_ROUTE; };
+    const next = () => window.scrollTo({ top: Math.min(LAST, Math.round(window.scrollY / step) + 1) * step, behavior: "smooth" });
 
-    // a visit always opens on the B, never part-way through where a reload left the page
+    // the stages are the page's resting places; and a visit always opens on the B, never where a reload left the page
     useEffect(() => {
-        const was = history.scrollRestoration;
+        const html = document.documentElement, was = history.scrollRestoration;
+        html.style.scrollSnapType = "y mandatory";
         history.scrollRestoration = "manual";
         window.scrollTo(0, 0);
         s.jump(0);
-        return () => { history.scrollRestoration = was; };
+        return () => { html.style.scrollSnapType = ""; history.scrollRestoration = was; };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    return <div className="relative" style={{ height: `calc(100svh + ${LOOP * STEP}svh)` }}>
+    return <div className="relative" style={{ height: `calc(100svh + ${LAST * STEP}svh)` }}>
+        {/* a resting place for each stage */}
+        {STAGES.map((_, i) => <div key={i} ref={i === 1 ? marker : undefined} aria-hidden="true" className="pointer-events-none absolute inset-x-0 h-px"
+                                   style={{ top: `${i * STEP}svh`, scrollSnapAlign: "start" }}/>)}
+
         <div className="sticky top-0 flex h-svh flex-col overflow-hidden">
             {STAGES.map((st, i) => st.colour ? <Tint key={i} s={s} at={i} colour={st.colour}/> : null)}
-            <Header stars={0}/>
+            <Header stars={0} end={<motion.div style={shown(headerPlay)}>
+                {/* quiet: a small play mark and the word, white, no fill, lit on hover as the menu button opposite */}
+                <button type="button" onClick={play} aria-label="Play today’s chapter"
+                        className="flex h-11 items-center gap-1.5 rounded-lg px-3 text-[14px] font-medium text-ui-text hover:bg-ui-raised">
+                    <PlayIcon className="size-3.5" strokeWidth={2}/>Play
+                </button>
+            </motion.div>}/>
             <main className="relative mx-auto flex w-full max-w-[36rem] flex-1 flex-col">
-                {/* every stage laid out alike: the emblem, then beneath it the stage's words, or on the first screen the button */}
+                {/* the story as text, for screen readers: the moving copies below are hidden from them */}
+                <div className="sr-only">
+                    <h1>Bible Game</h1>
+                    <ol>{STAGES.filter(st => st.text).map(st => <li key={st.number}>{st.number} {st.phase}: {st.text}</li>)}</ol>
+                </div>
+                {/* every stage laid out alike: the emblem, then beneath it the stage's words */}
                 <div className="flex flex-1 flex-col items-center justify-center px-6 pb-[72px] text-center max-[440px]:px-4">
                     <div className="relative flex w-full flex-col items-center gap-10">
                         <StoryEmblem stages={stages} at={s}/>
-                        <div className="relative h-[92px] w-full max-w-[24rem]">
-                            {/* the first screen has no line, only the B and the button, in the words' place: its heading is for screen readers */}
-                            <h1 className="sr-only">Bible Game</h1>
-                            <motion.div className="home-hero-actions absolute inset-x-0 top-0 [animation-delay:0.5s]" style={{ opacity: action, visibility: useTransform(action, a => a > 0 ? "visible" : "hidden") }}>
-                                <button type="button" onClick={play} className="ui-button ui-primary h-12 w-full max-w-[18rem] text-[15px]">
-                                    <PlayIcon className="size-[18px]" strokeWidth={2}/>Play today&apos;s chapter
-                                </button>
-                            </motion.div>
-                            {STAGES.map((st, i) => st.text ? <Fade key={i} at={i} s={s} className="absolute inset-x-0 top-0">
+                        <div className="relative h-[132px] w-full max-w-[24rem]">
+                            {/* the first screen: what it is, then today's game */}
+                            <Fade at={0} s={s} className="absolute inset-x-0 top-0">
+                                <div className="home-hero-text">
+                                    <p className="home-tagline !mt-0">Explore the Bible <em>with a daily passage-guessing game</em></p>
+                                </div>
+                                <div className="home-hero-actions mt-6 [animation-delay:0.5s]">
+                                    <button type="button" onClick={play} className="ui-button ui-primary h-12 w-full max-w-[18rem] text-[15px]">
+                                        <PlayIcon className="size-[18px]" strokeWidth={2}/>Play today&apos;s chapter
+                                    </button>
+                                </div>
+                            </Fade>
+                            {STAGES.map((st, i) => st.text ? <Fade key={i} at={i} s={s} copy className="absolute inset-x-0 top-0">
                                 {/* the phase above the line: its number in the mono, then its name in capitals; the line itself in the italic */}
                                 <p className="mb-2.5 flex items-center justify-center gap-2.5 text-[13px] uppercase leading-5 tracking-[0.06em] text-ui-muted">
                                     <span className="font-mono font-medium tabular-nums">{st.number}</span>
                                     {st.phase}
                                 </p>
-                                <h2 className="home-tagline !mt-0 italic">{st.text}</h2>
+                                <p className="home-tagline !mt-0 italic">{st.text}</p>
                             </Fade> : null)}
                         </div>
 
@@ -267,13 +219,19 @@ export default function Story() {
                     </div>
                 </div>
 
-                {/* the nudge to scroll on, always: the story has no end */}
-                <div className="absolute inset-x-0 bottom-0 flex justify-center">
+                {/* the nudge to scroll on, until Join us, where the footer takes its place */}
+                <motion.div className="absolute inset-x-0 bottom-0 flex justify-center" style={shown(cue)}>
                     <a href="#" onClick={e => { e.preventDefault(); next(); }} className="home-hero-cue">
                         Scroll down
                         <ChevronDownIcon className="size-5" aria-hidden="true"/>
                     </a>
-                </div>
+                </motion.div>
+                <motion.footer className="absolute inset-x-0 bottom-0 px-6 pb-[max(16px,env(safe-area-inset-bottom))] max-[440px]:px-4" style={shown(ending)}>
+                    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-ui-line pt-4 text-[13px] text-ui-muted">
+                        {FOOTER.map(link => <button key={link} type="button" onClick={() => toast(`Opens ${link}`)} className="min-h-[44px] hover:text-ui-text">{link}</button>)}
+                        <span className="ml-auto text-ui-faint">Bible Game {new Date().getFullYear()}</span>
+                    </div>
+                </motion.footer>
             </main>
         </div>
         <Toaster/>

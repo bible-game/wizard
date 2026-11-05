@@ -38,8 +38,8 @@ export function StarCount({ stars }: { stars: number }) {
     </a>;
 }
 
-/** The header as a visitor sees it: the menu with its notice dot, and the star count top right */
-export default function Header({ stars }: { stars: number }) {
+/** The header as a visitor sees it: the menu with its notice dot, and top right the star count, or `end` in its place */
+export default function Header({ stars, end }: { stars: number; end?: React.ReactNode }) {
     return <div className="app-header">
         <header className="grid h-14 shrink-0 grid-cols-[minmax(max-content,1fr)_minmax(0,auto)_minmax(max-content,1fr)] items-center px-2 text-ui-text">
             <div className="justify-self-start">
@@ -50,7 +50,7 @@ export default function Header({ stars }: { stars: number }) {
                 </button>
             </div>
             <div/>
-            <div className="justify-self-end"><StarCount stars={stars}/></div>
+            <div className="justify-self-end">{end ?? <StarCount stars={stars}/>}</div>
         </header>
     </div>;
 }
