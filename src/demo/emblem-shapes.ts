@@ -155,7 +155,8 @@ export function sequence(names: ShapeName[]): Placed[][] {
             out.push(last.map(p => { const c = centroid(p.points); return { points: p.points.map(([x, y]) => [c[0] + (x - c[0]) * 0.1, c[1] + (y - c[1]) * 0.1] as Point), hidden: true, dim: false }; }));
             continue;
         }
-        const placed = name === "b" ? last : name === "cross" ? CROSS.map((s, k) => ({ points: align(last[k].points, s.points), hidden: !!s.hidden, dim: false })) : place(last, SHAPES[name]);
+        // the B: as it starts, or, coming back to it, every stone home to its own place in it
+        const placed = name === "b" ? (out.length ? B.map((b, k) => ({ points: align(last[k].points, b.points), hidden: false, dim: false })) : last) : name === "cross" ? CROSS.map((s, k) => ({ points: align(last[k].points, s.points), hidden: !!s.hidden, dim: false })) : place(last, SHAPES[name]);
         out.push(placed);
         last = placed;
     }
