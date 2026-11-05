@@ -1,22 +1,23 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { motion, MotionValue, useScroll, useSpring, useTransform } from "framer-motion";
-import { ChevronDownIcon, GithubIcon, LinkedinIcon, MailIcon, MessageCircleIcon, PlayIcon } from "lucide-react";
+import { motion, MotionValue, useMotionValueEvent, useScroll, useSpring, useTransform } from "framer-motion";
+import { ChevronDownIcon, MailIcon, PlayIcon } from "lucide-react";
+import { SiDiscord, SiGithub } from "@icons-pack/react-simple-icons";
 import Header from "@/demo/header";
 import StoryEmblem from "@/demo/story-emblem";
 import { sequence, type ShapeName } from "@/demo/emblem-shapes";
 import { toast, Toaster } from "@/demo/toast";
 import { PLAY_ROUTE } from "@/demo/first-run";
 
-type Stage = { shape: ShapeName; number?: string; label?: string; title?: string; text?: string };
+type Stage = { shape: ShapeName; number?: string; label?: string; text?: string };
 
 /** The story, a stage per stop of the scroll: the hero, what Bible Game is for, its three daily steps, the record they leave, then Join us */
 const STAGES: Stage[] = [
     { shape: "b" },
-    { shape: "cross", number: "00", label: "Purpose", title: "The Bible tells the human story", text: "Understanding it is central to our spiritual development" },
-    { shape: "map", number: "01", label: "Play", title: "The Bible can be a challenge to navigate", text: "Build familiarity by playing each day" },
-    { shape: "book", number: "02", label: "Read", title: "God speaks to us through His word", text: "Playing daily will see you through the Bible in ~4 years" },
-    { shape: "question", number: "03", label: "Study", title: "Stretch your understanding", text: "Answer questions and add your interpretation" },
-    { shape: "stats", number: "04", label: "Statistics", title: "Record your reading", text: "Track your numbers and compare with friends" },
+    { shape: "cross", number: "00", label: "Purpose", text: "Explore the human story" },
+    { shape: "map", number: "01", label: "Play", text: "Build familiarity each day" },
+    { shape: "book", number: "02", label: "Read", text: "Cover the Bible in ~4 years" },
+    { shape: "question", number: "03", label: "Study", text: "Dive deeper into passages" },
+    { shape: "stats", number: "04", label: "Stats", text: "Track your numbers over time" },
     { shape: "none" },
 ];
 const LAST = STAGES.length - 1;
@@ -24,15 +25,21 @@ const LAST = STAGES.length - 1;
 /** How far the page scrolls from one stage to the next, and then for the logos' run across Join us, as shares of the screen's height */
 const STEP = 70;
 const RUN = 110;
-/** Where the logos set off (in stages: as the emblem goes) and arrive (the end of the page) */
+/** Where the logos set off (in stages: as the emblem goes) and stop (the end of the page) */
 const RUN_FROM = LAST - 0.5, RUN_TO = LAST + RUN / STEP;
 
+/** LinkedIn's mark, which Simple Icons no longer carries: its "in", set bold */
+const LinkedIn = ({ size }: { size: number }) => <span aria-hidden="true" className="font-sans font-bold leading-none tracking-[-0.04em]" style={{ fontSize: size * 0.92 }}>in</span>;
+const Mail = ({ size }: { size: number }) => <MailIcon aria-hidden="true" size={size} strokeWidth={2}/>;
+const Discord = ({ size }: { size: number }) => <SiDiscord aria-hidden="true" size={size}/>;
+const GitHub = ({ size }: { size: number }) => <SiGithub aria-hidden="true" size={size}/>;
+
+/** Where to find us, each as its own app icon: the platform's colour, its mark in white */
 const LINKS = [
-    // in the emblem's own colours, so the tiles read as more of its glass
-    { label: "Email", icon: MailIcon, colour: "#ffb12e" },
-    { label: "Discord", icon: MessageCircleIcon, colour: "#8f8dff" },
-    { label: "LinkedIn", icon: LinkedinIcon, colour: "#6d9cff" },
-    { label: "GitHub", icon: GithubIcon, colour: "#55f0bf" },
+    { label: "Email", icon: Mail, colour: "#d9a93a" },
+    { label: "Discord", icon: Discord, colour: "#5865f2" },
+    { label: "LinkedIn", icon: LinkedIn, colour: "#0a66c2" },
+    { label: "GitHub", icon: GitHub, colour: "#24292f" },
 ];
 
 const clamp = (t: number) => Math.min(1, Math.max(0, t));
@@ -50,77 +57,80 @@ function Fade({ at, s, stay, className, children }: { at: number; s: MotionValue
     return <motion.div className={className} style={{ opacity, y, visibility, pointerEvents }}>{children}</motion.div>;
 }
 
-/** A stage's number, in the background: large and faint, bleeding off the corner, drifting up as the scroll passes */
-function Numeral({ at, s, children }: { at: number; s: MotionValue<number>; children: string }) {
-    const opacity = useTransform(s, v => clamp(1 - Math.abs(v - at) * 2.2));
-    const y = useTransform(s, v => (at - v) * 120);
-    return <motion.p aria-hidden="true" style={{ opacity, y }}
-                     className="absolute -bottom-[0.18em] -right-[0.06em] select-none font-mono text-[clamp(200px,58vw,340px)] font-light leading-none tracking-[-0.06em] text-ui-text/[0.06]">
-        {children}
-    </motion.p>;
-}
+/** The icons' size and spacing on the track, and how far the scroll carries the track over the run */
+const ICON = 88, SPACING = 156, TRAVEL = 2.25;
 
 /**
- * Join us: the links ride in from the right along a wide arc as the page scrolls, as zogreo.org's platforms do, and
- * come to rest side by side in the middle at the end of the page
+ * Join us, after zogreo.org's platforms: large app icons in a row that the scroll carries across the screen, right to
+ * left, round and round (the four repeat, so the row never runs out), over faint circles that drift the other way. The
+ * one nearest the middle sits a little larger and lights its dot below. Each is a link
  */
 function Logos({ s }: { s: MotionValue<number> }) {
     const box = useRef<HTMLDivElement>(null);
-    const [size, setSize] = useState({ width: 375, height: 600 });
+    const [width, setWidth] = useState(375);
     useEffect(() => {
         const element = box.current!;
-        const observer = new ResizeObserver(() => setSize({ width: element.clientWidth, height: element.clientHeight }));
+        const observer = new ResizeObserver(() => setWidth(element.clientWidth));
         observer.observe(element);
         return () => observer.disconnect();
     }, []);
-    // the arc: a wide circle whose top runs through the middle of the box
-    const radius = Math.max(700, size.width * 1.2), top = size.height * 0.5, cx = size.width / 2;
-    const gap = Math.min(112, (size.width - 40) / LINKS.length);
-    const arc = (x: number) => { const dx = Math.min(Math.abs(x - cx), radius); return top + radius - Math.sqrt(radius * radius - dx * dx); };
+    // enough copies of the four to cover the screen and a tile either side
+    const loop = LINKS.length * SPACING;
+    const copies = Math.ceil((width + 2 * SPACING) / loop);
+    const tiles = [...Array(copies * LINKS.length)].map((_, j) => ({ ...LINKS[j % LINKS.length], j }));
     const run = useTransform(s, v => clamp((v - RUN_FROM) / (RUN_TO - RUN_FROM)));
-    const circle = useTransform(run, r => (1 - r) * 40);
-    const shown = useTransform(s, v => clamp((v - RUN_FROM) * 2));
+    // the track's offset: it starts with Email in the middle, and travels TRAVEL rounds of the four
+    const offset = useTransform(run, r => r * TRAVEL * loop);
+    const span = copies * loop;
+    const xOf = (j: number, o: number) => {
+        const raw = width / 2 + j * SPACING - o;
+        return ((raw + SPACING) % span + span) % span - SPACING;
+    };
+    const [current, setCurrent] = useState(0);
+    useMotionValueEvent(offset, "change", o => setCurrent(((Math.round(o / SPACING) % LINKS.length) + LINKS.length) % LINKS.length));
+    const drift = useTransform(run, r => r * 60);
 
     return <div ref={box} className="pointer-events-none absolute inset-0 overflow-hidden">
-        {/* the arc they ride, and a wider one behind it, faint */}
-        <motion.svg aria-hidden="true" className="pointer-events-none absolute inset-0 size-full" style={{ y: circle, opacity: shown }}>
-            <circle cx={cx} cy={top + radius} r={radius} fill="none" stroke="currentColor" className="text-ui-line" strokeWidth={1}/>
-            <circle cx={cx * 0.4} cy={top + radius * 0.9} r={radius * 1.1} fill="none" stroke="currentColor" className="text-ui-line/50" strokeWidth={1}/>
+        {/* faint circles, as zogreo.org's, drifting against the icons */}
+        <motion.svg aria-hidden="true" className="absolute inset-0 size-full text-ui-line" style={{ x: drift }}>
+            <circle cx="-8%" cy="58%" r="46%" fill="none" stroke="currentColor" strokeWidth={1}/>
+            <circle cx="104%" cy="28%" r="34%" fill="none" stroke="currentColor" strokeWidth={1} opacity={0.7}/>
+            <circle cx="88%" cy="104%" r="40%" fill="none" stroke="currentColor" strokeWidth={1} opacity={0.6}/>
         </motion.svg>
-        {LINKS.map(({ label, icon: Icon, colour }, i) => <Logo key={label} run={run} index={i} label={label} colour={colour} arc={arc}
-                                                              rest={cx + (i - (LINKS.length - 1) / 2) * gap} start={size.width + 60 + i * gap * 1.6}>
-            <Icon className="size-7" strokeWidth={1.5}/>
-        </Logo>)}
+        <div className="absolute inset-x-0 top-[48%] h-[132px] -translate-y-1/2">
+            {tiles.map(tile => <Tile key={tile.j} offset={offset} x={o => xOf(tile.j, o)} centre={width / 2} {...tile}/>)}
+        </div>
+        {/* which of the four is in the middle */}
+        <div aria-hidden="true" className="absolute inset-x-0 top-[calc(48%+84px)] flex justify-center gap-2">
+            {LINKS.map((link, i) => <span key={link.label} className={`size-1.5 rounded-full transition-colors ${i === current ? "bg-ui-text" : "bg-ui-text/25"}`}/>)}
+        </div>
     </div>;
 }
 
-function Logo({ run, label, colour, arc, rest, start, children }: {
-    run: MotionValue<number>; index: number; label: string; colour: string; arc: (x: number) => number; rest: number; start: number; children: React.ReactNode;
+function Tile({ offset, x, centre, label, icon: Icon, colour }: {
+    offset: MotionValue<number>; x: (o: number) => number; centre: number; label: string; icon: (p: { size: number }) => React.ReactNode; colour: string;
 }) {
-    // eased, so they slow as they arrive
-    const ease = (r: number) => 1 - Math.pow(1 - r, 2.2);
-    const x = useTransform(run, r => start + (rest - start) * ease(r));
-    const left = useTransform(x, v => v - 32);
-    const top = useTransform(x, v => arc(v) - 32);
-    const rotate = useTransform(x, v => (v - rest) * 0.04);
-    return <motion.button type="button" onClick={() => toast(`Opens ${label}`)} style={{ left, top, rotate }}
-                          className="pointer-events-auto absolute grid w-16 justify-items-center gap-1.5">
-        {/* a glass stone: tinted dark glass, a coloured rim with its glow, and a pale core to the icon, as the emblem's stones */}
-        <span className="relative flex size-16 items-center justify-center rounded-[18px] border-[1.5px] transition-transform active:scale-95"
-              style={{ color: colour, borderColor: colour, background: `${colour}1a`, boxShadow: `0 0 14px ${colour}59, inset 0 0 12px ${colour}26`, filter: `drop-shadow(0 0 0.5px #fff8)` }}>
-            <span aria-hidden="true" className="pointer-events-none absolute inset-[3px] rounded-[15px] border border-white/15"/>
-            {children}
+    const left = useTransform(offset, o => x(o) - ICON / 2);
+    // nearest the middle: full size; out towards the edges, a little smaller and lower, as if round a wheel
+    const near = useTransform(offset, o => clamp(1 - Math.abs(x(o) - centre) / (SPACING * 1.6)));
+    const scale = useTransform(near, n => 0.82 + 0.18 * n);
+    const y = useTransform(near, n => (1 - n) * 14);
+    return <motion.button type="button" onClick={() => toast(`Opens ${label}`)} style={{ left, scale, y }} aria-label={label}
+                          className="pointer-events-auto absolute top-0 grid justify-items-center gap-2.5" >
+        <span className="flex items-center justify-center rounded-[22px] text-white shadow-[0_14px_34px_rgba(0,0,0,0.4)] transition-transform active:scale-95"
+              style={{ width: ICON, height: ICON, background: colour }}>
+            <Icon size={46}/>
         </span>
-        <span className="text-[12px] text-ui-muted">{label}</span>
+        <span className="text-[14px] text-ui-text">{label}</span>
     </motion.button>;
 }
 
 /**
  * Home as a story told in one place, after zogreo.org: the screen stays put while the scroll moves it on. The emblem
  * in the middle becomes each stage's picture (the B, the cross, the grid map, a book, a question, the lit chapters of
- * the stats page), with the stage's words under it and its number large and faint behind. Everything follows the
+ * the stats page), with the stage's number and name under it, then its line. Everything follows the
  * scroll itself, so stopping part-way shows the change part-way; a fling comes to rest on a stage. At the end the
- * emblem goes and Join us takes its place, its links riding in along an arc
+ * emblem goes and Join us takes its place, its links carried across by the scroll
  */
 export default function Story() {
     const stages = useMemo(() => sequence(STAGES.map(s => s.shape)), []);
@@ -144,11 +154,6 @@ export default function Story() {
         {[...STAGES.map((_, i) => i * STEP), LAST * STEP + RUN].map(top => <div key={top} aria-hidden="true" className="pointer-events-none absolute inset-x-0 h-px" style={{ top: `${top}svh`, scrollSnapAlign: "start" }}/>)}
 
         <div className="sticky top-0 flex h-svh flex-col overflow-hidden">
-            {/* each stage's number, behind everything */}
-            <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-                {STAGES.map((st, i) => st.number ? <Numeral key={i} at={i} s={s}>{st.number}</Numeral> : null)}
-            </div>
-
             <Header stars={0}/>
             <main className="relative mx-auto flex w-full max-w-[36rem] flex-1 flex-col">
                 {/* the emblem, then the stage's words under it */}
@@ -163,21 +168,27 @@ export default function Story() {
                                 </button>
                             </div>
                         </Fade>
-                        {STAGES.map((st, i) => st.title ? <Fade key={i} at={i} s={s} className="absolute inset-x-0 top-0 grid gap-2">
-                            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ui-faint">{st.label}</p>
-                            <h2 className="text-balance text-[24px] font-light leading-[1.2] text-ui-text">{st.title}</h2>
-                            <p className="text-balance text-[16px] leading-[1.4] text-ui-faint">{st.text}</p>
+                        {STAGES.map((st, i) => st.text ? <Fade key={i} at={i} s={s} className="absolute inset-x-0 top-0 grid gap-2.5">
+                            <p className="flex items-baseline justify-center gap-2.5 text-[15px] font-medium text-ui-muted">
+                                <span className="font-mono text-[13px] text-play-gold">{st.number}</span>{st.label}
+                            </p>
+                            <h2 className="text-balance text-[28px] font-light leading-[1.15] text-ui-text">{st.text}</h2>
                         </Fade> : null)}
                     </div>
                 </div>
 
                 {/* the end: the emblem has gone, and Join us takes its place */}
-                <Fade at={LAST} s={s} stay className="absolute inset-0">
-                    <div className="absolute inset-x-0 top-[18%] grid gap-2 px-6 text-center">
+                <Fade at={LAST} s={s} stay className="pointer-events-none absolute inset-0">
+                    <Logos s={s}/>
+                    <div className="absolute inset-x-0 top-[16%] grid gap-3 px-6 text-center">
                         <h2 className="text-[34px] font-light leading-[1.1]">Join us</h2>
                     </div>
+                    <div className="absolute inset-x-0 bottom-[12%] flex justify-center">
+                        <button type="button" onClick={play} className="pointer-events-auto inline-flex h-11 items-center gap-2 rounded-full bg-ui-raised px-5 font-mono text-[12px] font-medium uppercase tracking-[0.16em] text-ui-text ring-1 ring-ui-line hover:bg-ui-line">
+                            Play today&apos;s chapter<span aria-hidden="true" className="size-1 rounded-full bg-ui-text"/>
+                        </button>
+                    </div>
                 </Fade>
-                <Logos s={s}/>
 
                 {/* the nudge to scroll, only on the hero */}
                 <motion.div className="absolute inset-x-0 bottom-0 flex justify-center" style={{ opacity: cue, pointerEvents: useTransform(cue, c => c > 0.5 ? "auto" : "none") }}>
