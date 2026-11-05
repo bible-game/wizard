@@ -13,8 +13,6 @@ export type Shape = Slot[];
 /** Deterministic noise in [0, 1) */
 const noise = (i: number, seed: number) => { const n = Math.sin(i * 127.1 + seed * 311.7) * 43758.5453; return n - Math.floor(n); };
 
-/** A rectangle as a glass stone, with the six corners every stone has */
-const stone = (x0: number, y0: number, x1: number, y1: number): Point[] => sixCorners(glass([[x0, y0], [x1, y0], [x1, y1], [x0, y1]]));
 
 /** Pixel art as stones on a lightly jittered lattice: `#` is a stone */
 function pixels(rows: string[], left: number, top: number, size: number, seed: number): Point[][] {
@@ -28,36 +26,58 @@ const B: Shape = morphCells.map(c => ({ points: c.b }));
 const CROSS: Shape = morphCells.map(c => ({ points: c.cross, hidden: c.extra }));
 
 /**
- * 01 Play: the grid map, as a tall rectangle of books in columns, each book a block of its own size, as Play lays out
- * the Bible's sections
+ * 01 Play: the grid map, as a tall panel of books in columns, each book a block of its own size, as Play lays out the
+ * Bible's sections. The leading between columns and books runs a little off true, as the lead of a window does, so it
+ * reads as glass like the B and the cross: every edge is shared by the stones either side, so the gaps stay even
  */
 const MAP: Shape = (() => {
     const columns = [{ width: 21, books: 10 }, { width: 17, books: 9 }, { width: 20, books: 10 }, { width: 18, books: 9 }];
-    const top = 2, bottom = 94;
-    let x = -8;
+    const top = 2, bottom = 94, mid = (top + bottom) / 2;
+    // each column boundary as a gently slanted line, x at a given y
+    let edge = -8;
+    const bounds = [edge, ...columns.map(c => (edge += c.width))].map((x, b) => {
+        const lean = b === 0 || b === columns.length ? 0 : (noise(b, 11) - 0.5) * 0.06;
+        return (y: number) => x + lean * (y - mid);
+    });
     return columns.flatMap((column, c) => {
         const weights = [...Array(column.books)].map((_, b) => 0.5 + noise(b, c + 3));
-        const total = weights.reduce((s, w) => s + w, 0);
-        let y = top;
-        const blocks = weights.map(w => { const h = (bottom - top) * w / total; const block = stone(x, y, x + column.width, y + h); y += h; return block; });
-        x += column.width;
-        return blocks.map(points => ({ points }));
+        const total = weights.reduce((sum, w) => sum + w, 0);
+        // the cuts between books, each a little off level: its height at the column's left and right
+        let at = top;
+        const cuts = [{ l: top, r: top }, ...weights.map((w, b) => {
+            at += (bottom - top) * w / total;
+            const tilt = b === column.books - 1 ? 0 : (noise(b, c + 21) - 0.5) * 1.6;
+            return { l: at - tilt, r: at + tilt };
+        })];
+        const left = bounds[c], right = bounds[c + 1];
+        return cuts.slice(0, -1).map((u, b) => {
+            const d = cuts[b + 1];
+            return { points: sixCorners(glass([[left(u.l), u.l], [right(u.r), u.r], [right(d.r), d.r], [left(d.l), d.l]])) };
+        });
     });
 })();
 
-/** 02 Read: an open book, each page a heading and its lines of text, each line a word or three */
+/**
+ * 02 Read: an open book, each page a heading and its lines of text, each line a word or three. The pages curve down
+ * into the spine, as an open book's do, so each line bows a little lower towards the middle
+ */
 const BOOK: Shape = (() => {
+    const spine = 30, half = 40;
+    const sag = (x: number) => 4.5 * Math.pow(1 - Math.min(1, Math.abs(x - spine) / half), 2);
+    // a word as a bar following the page's curve
+    const word = (x0: number, x1: number, y: number, h: number): Point[] =>
+        sixCorners(glass([[x0, y + sag(x0)], [x1, y + sag(x1)], [x1, y + h + sag(x1)], [x0, y + h + sag(x0)]]));
     const pages = [{ left: -10, right: 28 }, { left: 32, right: 70 }];
     return pages.flatMap((page, p) => {
         const width = page.right - page.left;
-        const heading = { points: stone(page.left + width * 0.25, 10, page.right - width * 0.25, 16) };
+        const heading = { points: word(page.left + width * 0.25, page.right - width * 0.25, 8, 6) };
         const lines = [...Array(8)].flatMap((_, l) => {
-            const y = 22 + l * 8.5;
+            const y = 20 + l * 8.5;
             // the last line of a paragraph stops short; two lines on each page have three words
             const end = l === 3 || l === 7 ? page.left + width * (0.45 + 0.2 * noise(l, p)) : page.right;
             const words = l === 1 || l === 5 ? 3 : 2;
             const cuts = [page.left, ...[...Array(words - 1)].map((_, w) => page.left + (end - page.left) * ((w + 1) / words + 0.12 * (noise(l * 3 + w, p + 7) - 0.5))), end];
-            return cuts.slice(0, -1).map((from, w) => ({ points: stone(from, y, cuts[w + 1], y + 5.5) }));
+            return cuts.slice(0, -1).map((from, w) => ({ points: word(from, cuts[w + 1], y, 5.5) }));
         });
         return [heading, ...lines];
     });
@@ -78,15 +98,13 @@ const QUESTION: Shape = pixels([
     "....##...",
 ], -6, 4, 8, 5).map(points => ({ points }));
 
-/** 04 Statistics: chapters lit and unlit, as the stats page colours the Bible you've seen */
-const LIT = "110110100111011101110011101101110110";
-const STATS: Shape = (() => {
-    const size = 11, left = 30 - 3 * size, top = 48 - 3 * size;
-    return [...Array(36)].map((_, k) => {
-        const i = k % 6, j = Math.floor(k / 6);
-        return { points: stone(left + i * size, top + j * size, left + (i + 1) * size, top + (j + 1) * size), dim: LIT[k] === "0" };
-    });
-})();
+/**
+ * 04 Statistics: chapters lit and unlit, as the stats page colours the Bible you've seen: a panel as tall as the others,
+ * on the same slightly uneven leading as the map
+ */
+const LIT = "11011010011101110111001110110111011";
+const STATS: Shape = pixels(["#####", "#####", "#####", "#####", "#####", "#####", "#####"], -3, 2.5, 13, 9)
+    .map((points, k) => ({ points, dim: LIT[k] === "0" }));
 
 export const SHAPES = { b: B, cross: CROSS, map: MAP, book: BOOK, question: QUESTION, stats: STATS };
 export type ShapeName = keyof typeof SHAPES | "none";

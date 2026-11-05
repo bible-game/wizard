@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { motion, MotionValue, useScroll, useTransform } from "framer-motion";
+import { motion, MotionValue, useScroll, useSpring, useTransform } from "framer-motion";
 import { ChevronDownIcon, GithubIcon, LinkedinIcon, MailIcon, MessageCircleIcon, PlayIcon } from "lucide-react";
 import Header from "@/demo/header";
 import StoryEmblem from "@/demo/story-emblem";
@@ -12,11 +12,11 @@ type Stage = { shape: ShapeName; number?: string; label?: string; title?: string
 /** The story, a stage per stop of the scroll: the hero, what Bible Game is for, its three daily steps, the record they leave, then Join us */
 const STAGES: Stage[] = [
     { shape: "b" },
-    { shape: "cross", number: "00", label: "Purpose", title: "The Bible tells the human story", text: "Understanding it helps us better navigate what’s next" },
-    { shape: "map", number: "01", label: "Play", title: "Bible Game exists to encourage your daily spiritual practice", text: "You build familiarity by finding each day’s chapter" },
-    { shape: "book", number: "02", label: "Read", title: "Read the day’s chapter", text: "This will get you through the whole Bible in about four years" },
-    { shape: "question", number: "03", label: "Study", title: "Stretch your understanding with some questions", text: "Digest the passage by adding your own interpretation" },
-    { shape: "stats", number: "04", label: "Statistics", title: "Record your Bible reading over time", text: "Track your numbers and compare with friends" },
+    { shape: "cross", number: "00", label: "Purpose", title: "The Bible tells the human story", text: "Understanding it is central to our spiritual development" },
+    { shape: "map", number: "01", label: "Play", title: "The Bible can be a challenge to navigate", text: "Build familiarity by playing each day" },
+    { shape: "book", number: "02", label: "Read", title: "God speaks to us through His word", text: "Playing daily will see you through the Bible in ~4 years" },
+    { shape: "question", number: "03", label: "Study", title: "Stretch your understanding", text: "Answer questions and add your interpretation" },
+    { shape: "stats", number: "04", label: "Statistics", title: "Record your reading", text: "Track your numbers and compare with friends" },
     { shape: "none" },
 ];
 const LAST = STAGES.length - 1;
@@ -28,10 +28,11 @@ const RUN = 110;
 const RUN_FROM = LAST - 0.5, RUN_TO = LAST + RUN / STEP;
 
 const LINKS = [
-    { label: "Email", icon: MailIcon, colour: "#d4b455" },
-    { label: "Discord", icon: MessageCircleIcon, colour: "#5865f2" },
-    { label: "LinkedIn", icon: LinkedinIcon, colour: "#0a66c2" },
-    { label: "GitHub", icon: GithubIcon, colour: "#2b3137" },
+    // in the emblem's own colours, so the tiles read as more of its glass
+    { label: "Email", icon: MailIcon, colour: "#ffb12e" },
+    { label: "Discord", icon: MessageCircleIcon, colour: "#8f8dff" },
+    { label: "LinkedIn", icon: LinkedinIcon, colour: "#6d9cff" },
+    { label: "GitHub", icon: GithubIcon, colour: "#55f0bf" },
 ];
 
 const clamp = (t: number) => Math.min(1, Math.max(0, t));
@@ -88,7 +89,7 @@ function Logos({ s }: { s: MotionValue<number> }) {
         </motion.svg>
         {LINKS.map(({ label, icon: Icon, colour }, i) => <Logo key={label} run={run} index={i} label={label} colour={colour} arc={arc}
                                                               rest={cx + (i - (LINKS.length - 1) / 2) * gap} start={size.width + 60 + i * gap * 1.6}>
-            <Icon className="size-7 text-white" strokeWidth={1.75}/>
+            <Icon className="size-7" strokeWidth={1.5}/>
         </Logo>)}
     </div>;
 }
@@ -104,7 +105,12 @@ function Logo({ run, label, colour, arc, rest, start, children }: {
     const rotate = useTransform(x, v => (v - rest) * 0.04);
     return <motion.button type="button" onClick={() => toast(`Opens ${label}`)} style={{ left, top, rotate }}
                           className="pointer-events-auto absolute grid w-16 justify-items-center gap-1.5">
-        <span className="flex size-16 items-center justify-center rounded-2xl shadow-[0_10px_28px_rgba(0,0,0,0.45)] ring-1 ring-white/10" style={{ background: colour }}>{children}</span>
+        {/* a glass stone: tinted dark glass, a coloured rim with its glow, and a pale core to the icon, as the emblem's stones */}
+        <span className="relative flex size-16 items-center justify-center rounded-[18px] border-[1.5px] transition-transform active:scale-95"
+              style={{ color: colour, borderColor: colour, background: `${colour}1a`, boxShadow: `0 0 14px ${colour}59, inset 0 0 12px ${colour}26`, filter: `drop-shadow(0 0 0.5px #fff8)` }}>
+            <span aria-hidden="true" className="pointer-events-none absolute inset-[3px] rounded-[15px] border border-white/15"/>
+            {children}
+        </span>
         <span className="text-[12px] text-ui-muted">{label}</span>
     </motion.button>;
 }
@@ -120,7 +126,9 @@ export default function Story() {
     const stages = useMemo(() => sequence(STAGES.map(s => s.shape)), []);
     const { scrollY } = useScroll();
     // where the story is, in stages
-    const s = useTransform(scrollY, y => y / (window.innerHeight * STEP / 100));
+    const raw = useTransform(scrollY, y => y / (window.innerHeight * STEP / 100));
+    // eased a touch behind the finger, so a jerky scroll or a wheel's steps still read as one glide
+    const s = useSpring(raw, { stiffness: 170, damping: 30, mass: 0.6, restDelta: 0.0005 });
     const cue = useTransform(s, v => clamp(1 - v * 4));
 
     useEffect(() => {
@@ -167,7 +175,6 @@ export default function Story() {
                 <Fade at={LAST} s={s} stay className="absolute inset-0">
                     <div className="absolute inset-x-0 top-[18%] grid gap-2 px-6 text-center">
                         <h2 className="text-[34px] font-light leading-[1.1]">Join us</h2>
-                        <p className="text-[13px] text-ui-faint">Bible Game {new Date().getFullYear()}</p>
                     </div>
                 </Fade>
                 <Logos s={s}/>
@@ -180,6 +187,13 @@ export default function Story() {
                     </a>
                 </motion.div>
             </main>
+        </div>
+        {/* the page's own end, as the webapp's home has it */}
+        <div className="app-page absolute inset-x-0 top-full !pt-0">
+            <footer className="flex flex-wrap gap-x-5 gap-y-3 border-t border-ui-line pt-6 text-[13px] text-ui-muted">
+                {["About", "Privacy", "Cookies"].map(page => <button key={page} type="button" onClick={() => toast(`Opens ${page}`)} className="hover:text-ui-text">{page}</button>)}
+                <span className="ml-auto">Bible Game {new Date().getFullYear()}</span>
+            </footer>
         </div>
         <Toaster/>
     </div>;

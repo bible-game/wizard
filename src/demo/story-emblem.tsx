@@ -6,7 +6,7 @@ import type { Placed } from "@/demo/emblem-shapes";
 const CELL_SHARE = 0.6; // of a change each stone spends on its way; the rest staggers them top to bottom
 const CLOSE = 0.25, OPEN = 0.75, STAR = 0.16; // each stone closes to a star, glides, then opens (as use-mosaic-morph.ts)
 /** How much of the scroll either side of a stage holds its shape still, so a stage reads whole before it starts to go */
-const HOLD = 0.15;
+const HOLD = 0.2;
 /** An unlit chapter on the stats shape */
 const DIM = "#4a5068";
 
