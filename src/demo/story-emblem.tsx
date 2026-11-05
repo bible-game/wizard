@@ -1,18 +1,17 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useRef } from "react";
+import { MotionValue, useMotionValueEvent } from "framer-motion";
 import { centroid, HEIGHT, mix, morphCells, type Point, rounded, WIDTH } from "@/core/style/mosaic";
 import type { Placed } from "@/demo/emblem-shapes";
 
-/** How long the stones take to travel from one shape to the next */
-const MORPH = 1500;
-const CELL_SHARE = 0.65; // of the morph each stone spends on its way; the rest staggers them top to bottom
+const CELL_SHARE = 0.6; // of a change each stone spends on its way; the rest staggers them top to bottom
 const CLOSE = 0.25, OPEN = 0.75, STAR = 0.16; // each stone closes to a star, glides, then opens (as use-mosaic-morph.ts)
+/** How much of the scroll either side of a stage holds its shape still, so a stage reads whole before it starts to go */
+const HOLD = 0.15;
 /** An unlit chapter on the stats shape */
 const DIM = "#4a5068";
 
 const glide = (t: number) => (1 - Math.cos(Math.PI * t)) / 2;
 const clamp = (t: number) => Math.min(1, Math.max(0, t));
-
-type Drawn = { points: Point[]; size: number; opacity: number; colour: string };
 
 type Layer = "bloom" | "stone" | "core";
 
@@ -30,76 +29,50 @@ function Cells({ layer }: { layer: Layer }) {
 }
 
 /**
- * The hero's emblem, as the webapp's GlowingCross draws it (glass stones, a white-hot core and a glow), but led by the
- * story rather than a loop: given the shapes of each stage (`stages`, from emblem-shapes.ts) and the stage it's at, the
- * stones drift to that shape, each closing to a star on the way, in a wave from the top (from the bottom going back).
- * A change of stage mid-way starts from wherever the stones are. Under reduced motion they move at once
+ * The hero's emblem, as the webapp's GlowingCross draws it (glass stones, a white-hot core and a glow), moved by the
+ * scroll rather than a loop. `at` is where the story is, in stages (1.5: half-way from the second to the third); the
+ * stones stand in that stage's shape (from emblem-shapes.ts) or, between two, are that far on their way: each closes to a
+ * star, glides and opens, in a wave from the top, so scrolling back plays it backwards and stopping part-way holds it
+ * there. Each stage holds still for a little scroll either side
  */
-export default function StoryEmblem({ stages, stage, height = 168 }: { stages: Placed[][]; stage: number; height?: number }) {
+export default function StoryEmblem({ stages, at, height = 168 }: { stages: Placed[][]; at: MotionValue<number>; height?: number }) {
     const root = useRef<HTMLDivElement>(null);
-    const colours = useMemo(() => morphCells.map(c => c.colour.b), []);
-    const drawn = useRef<Drawn[]>(morphCells.map((c, k) => ({ points: c.b, size: 1, opacity: 1, colour: colours[k] })));
-    const last = useRef(stage);
-    const started = useRef(false);
+    const layers = useRef<SVGPathElement[][]>([]);
+    const bloom = useRef<SVGGElement | null>(null);
+    // each stage's colours, and where each stone sits in the wave as it leaves that stage
+    const looks = useRef(stages.map(stage => stage.map((p, k) => ({ colour: p.dim ? DIM : morphCells[k].colour.b, opacity: p.hidden ? 0 : 1, wave: centroid(p.points)[1] / HEIGHT }))));
+
+    const draw = (s: number) => {
+        if (!layers.current.length) return;
+        const last = stages.length - 1;
+        const i = Math.min(last - 1, Math.max(0, Math.floor(s)));
+        const t = clamp((Math.min(last, Math.max(0, s)) - i - HOLD) / (1 - 2 * HOLD));
+        const from = stages[i], to = stages[i + 1], a = looks.current[i], b = looks.current[i + 1];
+        morphCells.forEach((_, k) => {
+            const local = clamp((t - clamp(a[k].wave) * (1 - CELL_SHARE)) / CELL_SHARE);
+            const g = glide(clamp((local - CLOSE) / (OPEN - CLOSE)));
+            const size = local < CLOSE ? 1 - (1 - STAR) * glide(local / CLOSE) : local > OPEN ? STAR + (1 - STAR) * glide((local - OPEN) / (1 - OPEN)) : STAR;
+            const points = from[k].points.map(([x, y], n) => [x + (to[k].points[n][0] - x) * g, y + (to[k].points[n][1] - y) * g] as Point);
+            const [cx, cy] = centroid(points);
+            const d = rounded(points.map(([x, y]) => [cx + (x - cx) * size, cy + (y - cy) * size] as Point), 1.3 * size);
+            const opacity = (a[k].opacity + (b[k].opacity - a[k].opacity) * glide(local)).toFixed(3);
+            const colour = mix(a[k].colour, b[k].colour, g);
+            layers.current[k].forEach(el => {
+                el.setAttribute("d", d);
+                el.setAttribute("opacity", opacity);
+                if (el.hasAttribute("data-colour")) { el.setAttribute("fill", colour); el.setAttribute("stroke", colour); }
+            });
+        });
+        bloom.current?.setAttribute("opacity", (0.7 + 0.2 * Math.sin(Math.PI * t)).toFixed(3));
+    };
 
     useEffect(() => {
-        const element = root.current;
-        if (!element) return;
-        const layers = morphCells.map((_, k) => Array.from(element.querySelectorAll<SVGPathElement>(`[data-cell="${k}"]`)));
-        const bloom = element.querySelector<SVGGElement>("[data-bloom]");
-        // first drawn as the B (the server's render): nothing to move unless the page opened further down
-        if (!started.current) { started.current = true; if (stage === 0) return; }
-        const forward = stage >= last.current;
-        last.current = stage;
-
-        const target = stages[stage];
-        const from = drawn.current.map(d => ({ ...d }));
-        const to = target.map((p, k): Drawn => ({ points: p.points, size: 1, opacity: p.hidden ? 0 : 1, colour: p.dim ? DIM : colours[k] }));
-
-        const paint = (k: number, d: Drawn) => {
-            const [cx, cy] = centroid(d.points);
-            const path = rounded(d.points.map(([x, y]) => [cx + (x - cx) * d.size, cy + (y - cy) * d.size] as Point), 1.3 * d.size);
-            layers[k].forEach(el => {
-                el.setAttribute("d", path);
-                el.setAttribute("opacity", d.opacity.toFixed(3));
-                if (el.hasAttribute("data-colour")) { el.setAttribute("fill", d.colour); el.setAttribute("stroke", d.colour); }
-            });
-        };
-
-        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-            to.forEach((d, k) => { drawn.current[k] = d; paint(k, d); });
-            return;
-        }
-
-        // the wave runs by each stone's height where it starts
-        const heights = from.map(d => centroid(d.points)[1] / HEIGHT);
-        const start = performance.now();
-        let frame = 0;
-        const tick = (now: number) => {
-            const elapsed = clamp((now - start) / MORPH);
-            from.forEach((a, k) => {
-                const b = to[k];
-                const lead = forward ? heights[k] : 1 - heights[k];
-                const local = clamp((elapsed - clamp(lead) * (1 - CELL_SHARE)) / CELL_SHARE);
-                const g = glide(clamp((local - CLOSE) / (OPEN - CLOSE)));
-                // the size closes from wherever it was, to a star, then opens to the new stone's
-                const size = local < CLOSE ? a.size + (STAR - a.size) * glide(local / CLOSE)
-                    : local > OPEN ? STAR + (b.size - STAR) * glide((local - OPEN) / (1 - OPEN)) : STAR;
-                const d: Drawn = {
-                    points: a.points.map(([x, y], i) => [x + (b.points[i][0] - x) * g, y + (b.points[i][1] - y) * g] as Point),
-                    size,
-                    opacity: a.opacity + (b.opacity - a.opacity) * glide(local),
-                    colour: mix(a.colour, b.colour, g),
-                };
-                drawn.current[k] = d;
-                paint(k, d);
-            });
-            bloom?.setAttribute("opacity", (0.7 + 0.2 * Math.sin(Math.PI * elapsed)).toFixed(3));
-            if (elapsed < 1) frame = requestAnimationFrame(tick);
-        };
-        frame = requestAnimationFrame(tick);
-        return () => cancelAnimationFrame(frame);
-    }, [stage, stages, colours]);
+        const element = root.current!;
+        layers.current = morphCells.map((_, k) => Array.from(element.querySelectorAll<SVGPathElement>(`[data-cell="${k}"]`)));
+        bloom.current = element.querySelector("[data-bloom]");
+        draw(at.get());
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    useMotionValueEvent(at, "change", draw);
 
     const width = height * WIDTH / HEIGHT;
     return <div ref={root} aria-hidden="true" className="glowing-cross" style={{ width, height }}>
