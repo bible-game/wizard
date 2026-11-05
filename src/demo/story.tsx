@@ -13,11 +13,11 @@ type Stage = { shape: ShapeName; number?: string; label?: string; text?: string 
 /** The story, a stage per stop of the scroll: the hero, what Bible Game is for, its three daily steps, the record they leave, then Join us */
 const STAGES: Stage[] = [
     { shape: "b" },
-    { shape: "cross", number: "00", label: "Purpose", text: "Explore the human story" },
-    { shape: "map", number: "01", label: "Play", text: "Build familiarity each day" },
-    { shape: "book", number: "02", label: "Read", text: "Cover the Bible in ~4 years" },
-    { shape: "question", number: "03", label: "Study", text: "Dive deeper into passages" },
-    { shape: "stats", number: "04", label: "Stats", text: "Track your numbers over time" },
+    { shape: "cross", number: "00", label: "Purpose", text: "Explore the *human story*" },
+    { shape: "map", number: "01", label: "Play", text: "Build *familiarity* each day" },
+    { shape: "book", number: "02", label: "Read", text: "Cover the Bible in *~4 years*" },
+    { shape: "question", number: "03", label: "Study", text: "Dive *deeper* into passages" },
+    { shape: "stats", number: "04", label: "Stats", text: "Track your *numbers* over time" },
     { shape: "none" },
 ];
 const LAST = STAGES.length - 1;
@@ -44,6 +44,9 @@ const LINKS = [
 
 const clamp = (t: number) => Math.min(1, Math.max(0, t));
 
+/** A line with its *starred* phrase set in the story's second voice, the gold italic serif (.story-accent) */
+const accented = (text: string) => text.split("*").map((part, i) => i % 2 ? <span key={i} className="story-accent">{part}</span> : part);
+
 /**
  * Shown at its stage, and by the scroll: it fades and rises in as the story nears it, and on out as it leaves, so a
  * part-way scroll shows it part-way. `stay` keeps it once reached (the last stage)
@@ -62,7 +65,7 @@ const ICON = 88, SPACING = 156, TRAVEL = 2.25;
 
 /**
  * Join us, after zogreo.org's platforms: large app icons in a row that the scroll carries across the screen, right to
- * left, round and round (the four repeat, so the row never runs out), over faint circles that drift the other way. The
+ * left, round and round (the four repeat, so the row never runs out). The
  * one nearest the middle sits a little larger and lights its dot below. Each is a link
  */
 function Logos({ s }: { s: MotionValue<number> }) {
@@ -100,16 +103,6 @@ function Logos({ s }: { s: MotionValue<number> }) {
     </div>;
 }
 
-/** Faint circles, as zogreo.org's, drifting against the icons as the scroll carries them */
-function Circles({ s }: { s: MotionValue<number> }) {
-    const drift = useTransform(s, v => clamp((v - RUN_FROM) / (RUN_TO - RUN_FROM)) * 60);
-    return <motion.svg aria-hidden="true" className="absolute inset-0 size-full text-ui-line" style={{ x: drift }}>
-        <circle cx="-8%" cy="58%" r="46%" fill="none" stroke="currentColor" strokeWidth={1}/>
-        <circle cx="104%" cy="28%" r="34%" fill="none" stroke="currentColor" strokeWidth={1} opacity={0.7}/>
-        <circle cx="88%" cy="104%" r="40%" fill="none" stroke="currentColor" strokeWidth={1} opacity={0.6}/>
-    </motion.svg>;
-}
-
 function Tile({ offset, x, centre, label, icon: Icon, colour }: {
     offset: MotionValue<number>; x: (o: number) => number; centre: number; label: string; icon: (p: { size: number }) => React.ReactNode; colour: string;
 }) {
@@ -142,6 +135,8 @@ export default function Story() {
     const raw = useTransform(scrollY, y => y / (window.innerHeight * STEP / 100));
     // eased a touch behind the finger, so a jerky scroll or a wheel's steps still read as one glide
     const s = useSpring(raw, { stiffness: 170, damping: 30, mass: 0.6, restDelta: 0.0005 });
+    // the button stays put through the story, and goes as the emblem does, before Join us
+    const action = useTransform(s, v => clamp((LAST - 0.2 - v) / 0.4));
     // the nudge stays until the page's end, fading over its last stretch
     const cue = useTransform(s, v => clamp((RUN_TO - v) * 2.5));
     const next = () => {
@@ -164,9 +159,6 @@ export default function Story() {
 
         <div className="sticky top-0 flex h-svh flex-col overflow-hidden">
             <Header stars={0}/>
-            {/* Join us's faint circles, across the whole screen */}
-            <Fade at={LAST} s={s} stay className="pointer-events-none absolute inset-0"><Circles s={s}/></Fade>
-
             <main className="relative mx-auto flex w-full max-w-[36rem] flex-1 flex-col">
                 {/* every stage laid out as the hero is: the emblem, two lines of words, then the button, which stays put */}
                 <div className="flex flex-1 flex-col items-center justify-center gap-10 px-6 pb-[72px] text-center max-[440px]:px-4">
@@ -174,11 +166,11 @@ export default function Story() {
                         <StoryEmblem stages={stages} at={s}/>
                         <div className="relative h-[92px] w-full max-w-[24rem]">
                             <Fade at={0} s={s} className="absolute inset-x-0 top-0">
-                                <h1 className="home-hero-text home-tagline !mt-0">Explore the Bible <em>with a daily passage-guessing game</em></h1>
+                                <h1 className="home-hero-text home-tagline !mt-0">Explore the <span className="story-accent">Bible</span> <em>with a daily passage-guessing game</em></h1>
                             </Fade>
                             {STAGES.map((st, i) => st.text ? <Fade key={i} at={i} s={s} className="absolute inset-x-0 top-0">
                                 <h2 className="home-tagline !mt-0">
-                                    {st.text}
+                                    {accented(st.text)}
                                     <em><span className="mr-2 font-mono text-[14px] not-italic text-play-gold">{st.number}</span>{st.label}</em>
                                 </h2>
                             </Fade> : null)}
@@ -189,17 +181,19 @@ export default function Story() {
                             {/* (the Fade moves itself, so it sits inside the box that centres it) */}
                             <Fade at={LAST} s={s} stay className="absolute inset-0">
                                 <div className="absolute inset-x-0 top-0 px-6 text-center">
-                                    <h2 className="home-tagline !mt-0 text-[34px] text-ui-text">Join us</h2>
+                                    <h2 className="home-tagline !mt-0 text-[34px]">Join <span className="story-accent">us</span></h2>
                                 </div>
                                 <Logos s={s}/>
                             </Fade>
                         </div>
                     </div>
-                    <div className="home-hero-actions">
+                    <motion.div className="home-hero-actions" style={{ opacity: action, visibility: useTransform(action, a => a > 0 ? "visible" : "hidden") }}>
                         <button type="button" onClick={play} className="ui-button ui-primary h-12 w-full max-w-[18rem] text-[15px]">
                             <PlayIcon className="size-[18px]" strokeWidth={2}/>Play today&apos;s chapter
                         </button>
-                    </div>
+                        {/* what it asks of you, so the button is an easy yes */}
+                        <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.14em] text-ui-faint">Free · No sign-up to play · 10 min a day</p>
+                    </motion.div>
                 </div>
 
                 {/* the nudge to scroll, on to the next stage, until the bottom */}
@@ -210,13 +204,6 @@ export default function Story() {
                     </a>
                 </motion.div>
             </main>
-        </div>
-        {/* the page's own end, as the webapp's home has it */}
-        <div className="app-page absolute inset-x-0 top-full !pt-0">
-            <footer className="flex flex-wrap gap-x-5 gap-y-3 border-t border-ui-line pt-6 text-[13px] text-ui-muted">
-                {["About", "Privacy", "Cookies"].map(page => <button key={page} type="button" onClick={() => toast(`Opens ${page}`)} className="hover:text-ui-text">{page}</button>)}
-                <span className="ml-auto">Bible Game {new Date().getFullYear()}</span>
-            </footer>
         </div>
         <Toaster/>
     </div>;
