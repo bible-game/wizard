@@ -28,7 +28,7 @@ const STAGES: Stage[] = [
 const LAST = STAGES.length - 1;
 
 /** How far the page scrolls from one stage to the next, as a share of the screen's (small) height */
-const STEP = 70;
+export const STEP = 70;
 
 /** LinkedIn's mark, which Simple Icons no longer carries: its "in", set bold */
 const LinkedIn = ({ size }: { size: number }) => <span aria-hidden="true" className="font-sans font-bold leading-none tracking-[-0.04em]" style={{ fontSize: size * 0.92 }}>in</span>;
@@ -37,7 +37,7 @@ const Discord = ({ size }: { size: number }) => <SiDiscord aria-hidden="true" si
 const GitHub = ({ size }: { size: number }) => <SiGithub aria-hidden="true" size={size}/>;
 
 /** Where to find us, each as its own app icon: the platform's colour, its mark in white */
-const LINKS = [
+export const LINKS = [
     { label: "Email", icon: Mail, colour: "#d9a93a" },
     { label: "Discord", icon: Discord, colour: "#5865f2" },
     { label: "LinkedIn", icon: LinkedIn, colour: "#0a66c2" },
@@ -51,7 +51,7 @@ const clamp = (t: number) => Math.min(1, Math.max(0, t));
  * part-way scroll shows it part-way. `until` holds it shown from its stage to there. A `copy` is hidden from screen
  * readers, which have the story as text already
  */
-function Fade({ at, s, until = at, copy, className, children }: { at: number; s: MotionValue<number>; until?: number; copy?: boolean; className?: string; children: React.ReactNode }) {
+export function Fade({ at, s, until = at, copy, className, children }: { at: number; s: MotionValue<number>; until?: number; copy?: boolean; className?: string; children: React.ReactNode }) {
     const off = (v: number) => v < at ? at - v : v > until ? until - v : 0;
     const near = (v: number) => clamp(1 - Math.abs(off(v)) * 2.4);
     const opacity = useTransform(s, near);
@@ -71,8 +71,8 @@ const backOut = (t: number) => { const c = 1.70158; return 1 + (c + 1) * Math.po
  * scroll: it rises from below, small and turned a little, and springs up into place, a beat after the one before it,
  * so the four arrive left to right. Scrolling back sets them down again
  */
-function Platform({ s, i, label, icon: Icon, colour }: { s: MotionValue<number>; i: number; label: string; icon: (p: { size: number }) => React.ReactNode; colour: string }) {
-    const p = useTransform(s, v => clamp((v - (LAST - ARRIVE_FROM) - i * ARRIVE_GAP) / ARRIVE_SPAN));
+function Platform({ s, i, last, label, icon: Icon, colour }: { s: MotionValue<number>; i: number; last: number; label: string; icon: (p: { size: number }) => React.ReactNode; colour: string }) {
+    const p = useTransform(s, v => clamp((v - (last - ARRIVE_FROM) - i * ARRIVE_GAP) / ARRIVE_SPAN));
     const e = useTransform(p, t => backOut(t));
     const y = useTransform(e, t => (1 - t) * 56);
     const scale = useTransform(e, t => 0.55 + 0.45 * t);
@@ -90,12 +90,12 @@ function Platform({ s, i, label, icon: Icon, colour }: { s: MotionValue<number>;
     </motion.button>;
 }
 
-/** Join us: the four places to find us in a row, each arriving on the scroll */
-function JoinUs({ s }: { s: MotionValue<number> }) {
+/** Join us: the four places to find us in a row, each arriving on the scroll as it nears `last`, the stage it ends on */
+export function JoinUs({ s, last = LAST }: { s: MotionValue<number>; last?: number }) {
     return <div className="absolute inset-x-0 top-0 flex flex-col items-center gap-12 px-6 text-center max-[440px]:px-4">
         <h2 className="home-tagline !mt-0 !text-[20px]">Get Involved</h2>
         <div className="flex w-full justify-center gap-[clamp(16px,5vw,32px)]">
-            {LINKS.map((link, i) => <Platform key={link.label} s={s} i={i} {...link}/>)}
+            {LINKS.map((link, i) => <Platform key={link.label} s={s} i={i} last={last} {...link}/>)}
         </div>
     </div>;
 }
@@ -104,7 +104,7 @@ function JoinUs({ s }: { s: MotionValue<number> }) {
  * A step's colour in the ground: a broad, soft field of the region's light behind the emblem, and a fainter one rising
  * from the foot of the screen, there while its step is on stage and fading as the scroll leaves it
  */
-function Tint({ s, at, colour }: { s: MotionValue<number>; at: number; colour: string }) {
+export function Tint({ s, at, colour }: { s: MotionValue<number>; at: number; colour: string }) {
     const opacity = useTransform(s, v => clamp(1 - Math.abs(v - at) * 1.1));
     return <motion.div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{
         opacity,
@@ -113,7 +113,7 @@ function Tint({ s, at, colour }: { s: MotionValue<number>; at: number; colour: s
 }
 
 /** The footer's links (the app's legal pages) */
-const FOOTER = ["About", "Privacy", "Cookies"];
+export const FOOTER = ["About", "Privacy", "Cookies"];
 
 /**
  * Home as a story told in one place, after zogreo.org: the screen stays put while the scroll moves it on. The emblem

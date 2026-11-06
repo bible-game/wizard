@@ -83,7 +83,7 @@ function Sheet({ isOpen, onOpenChange, onClose, placement = "center", classNames
     }, [isOpen, close]);
     if (!isOpen) return null;
     const where = drawer ? "inset-0" : placement === "bottom" ? "inset-x-0 bottom-0 flex items-end justify-center" : "inset-0 flex items-center justify-center p-4";
-    return createPortal(<div className="fixed inset-0 z-[60]">
+    return createPortal(<div data-sheet="" className="fixed inset-0 z-[60]">
         <div className={cx("absolute inset-0 bg-black/50 backdrop-blur-sm", classNames?.backdrop)} onClick={close}/>
         <div className={cx("absolute", where)}>
             <section role="dialog" aria-modal="true" aria-label={rest["aria-label"] as string}

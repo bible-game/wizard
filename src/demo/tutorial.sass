@@ -4,8 +4,8 @@
 // before it arrives. The tutorial's words take the clue's place, and its Next the guess bar's; both come back at the end
 
 // how a part arrives (and how the clue, the header and the bar come back): always, so they also ease back at the end
-[data-game-ready] header, [data-game-ready] > div > section > button:first-child > p, [data-game-ready] > div.flex-1,
-[data-game-ready] ol[aria-label=Guesses], [data-game-ready] > section
+[data-game-ready] header, [data-game-ready] > div > section, [data-game-ready] > div > section > button:first-child > p,
+[data-game-ready] > div.flex-1, [data-game-ready] ol[aria-label=Guesses], [data-game-ready] > section
   transition: opacity 0.7s cubic-bezier(0.22, 0.8, 0.24, 1), transform 0.7s cubic-bezier(0.22, 0.8, 0.24, 1)
 
 // while it runs the page only shows, it isn't played; the header gives its place to the progress and Skip, the clue to
@@ -15,6 +15,31 @@
   header, > div > section > button:first-child > p, > section
     opacity: 0
 
+// under the landing (landing-overlay.tsx, onboarding.tsx sets data-landing on the wrapper): the page's own header, clue,
+// guesses and bar give their places to the landing's, the map stays in full, and nothing is touched; the page's own
+// first-visit sheet (the cookie notice) waits until the visitor asks to play
+[data-landing] [data-game-ready]
+  pointer-events: none
+  header, > div > section > button, ol[aria-label=Guesses], > section
+    opacity: 0
+  // nothing between the words and the map: the line under the guesses comes back with the game
+  > div > section
+    border-color: transparent
+  // the map is held back, its place the landing's (the hero, the route), until the landing's last screen brings it in
+  > div.flex-1
+    opacity: 0
+    transform: scale(0.985)
+  &[data-map-shown] > div.flex-1
+    opacity: 1
+    transform: none
+// as the landing hands over to the game (the page made afresh with the visitor's round, onboarding.tsx), the map the
+// last screen showed stays, while the rest still eases in
+[data-landing][data-holding] [data-game-ready] > div.flex-1
+  opacity: 1
+  transform: none
+body:has([data-landing]) [data-sheet]
+  display: none
+
 // 0: the words alone; 1: then the map; 2: then the guesses (and a guess made for the visitor to watch)
 [data-reveal="0"] [data-game-ready] > div.flex-1
   opacity: 0
@@ -22,6 +47,10 @@
 [data-reveal="0"], [data-reveal="1"]
   [data-game-ready] ol[aria-label=Guesses]
     opacity: 0
+// straight on from the landing, which showed the map, the tutorial keeps it rather than taking it away and back
+[data-map-kept] [data-game-ready] > div.flex-1
+  opacity: 1
+  transform: none
 
 // the first round's notes (how to zoom, then the first reading), in the guesses' own row: the empty slots give their
 // room to them (round-tips.tsx sets data-row-note, "zoom" or "first", on the page and writes them there)
@@ -55,6 +84,11 @@ $rise: 0.45s
 [data-clue-shimmer] > section > div
   animation: tile-in $rise cubic-bezier(0.34, 1.3, 0.64, 1) $lead + $sweep + $rise 1 both
 
+// the landing's words, each beat's, arriving as the clue's do, a little quicker, as the scroll brings them
+.landing-words
+  +entrance(var(--ui-text), 0.1s)
+  animation-duration: 1.6s
+
 @keyframes entrance
   from
     background-position: 100% 0
@@ -73,8 +107,8 @@ $rise: 0.45s
   [data-game-ready] header, [data-game-ready] > div > section > button:first-child > p, [data-game-ready] > div.flex-1,
   [data-game-ready] ol[aria-label=Guesses], [data-game-ready] > section
     transition: none
-  .clue-shimmer, [data-clue-shimmer] > div > section > button:first-child > p, [data-clue-shimmer] > section > div
+  .clue-shimmer, [data-clue-shimmer] > div > section > button:first-child > p, [data-clue-shimmer] > section > div, .landing-words
     animation: none
-  .clue-shimmer, [data-clue-shimmer] > div > section > button:first-child > p
+  .clue-shimmer, [data-clue-shimmer] > div > section > button:first-child > p, .landing-words
     background: none
     color: var(--ui-text)
