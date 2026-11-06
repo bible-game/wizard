@@ -20,6 +20,7 @@ import {
     PlusIcon,
     CopyIcon,
     StarIcon,
+    UserRoundIcon,
     XIcon,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@heroui/react";
@@ -28,7 +29,6 @@ import MyStats from "@/app/play/[game]/my-stats";
 import colours from "@/app/play/[game]/map/config/colours.json";
 import groups from "@/app/play/[game]/map/config/groups.json";
 import { playTheme } from "@/core/style/play-theme";
-import { uiTheme } from "@/core/style/ui-theme";
 import { lightOf, squareOf } from "@/app/play/[game]/closeness";
 import { glow, tone } from "@/core/style/regions";
 
@@ -131,14 +131,14 @@ const Countdown = () => {
     return <span className="tabular-nums">{`${Math.floor(left.asHours())}:${String(left.minutes()).padStart(2, "0")}:${String(left.seconds()).padStart(2, "0")}`}</span>;
 }
 
-const glyph = { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" } as const;
-
-const InfoGlyph = ({ className }: { className?: string }) => (
-    <svg {...glyph} strokeWidth={2.5} className={className} aria-hidden="true"><path d="M12 11v6"/><path d="M12 7h.01"/></svg>
-);
-
-const AlertGlyph = ({ className }: { className?: string }) => (
-    <svg {...glyph} strokeWidth={2.5} className={className} aria-hidden="true"><path d="M12 7v6"/><path d="M12 17h.01"/></svg>
+/** How to play's mark: a bold question mark on its own (lucide only has one in a circle, badge or bubble), its hook
+ * and stem one thick round stroke, then its dot */
+const QuestionGlyph = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.75}
+         strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+        <path d="M8.25 8.5a3.75 3.75 0 1 1 5.6 3.25c-1.1.65-1.85 1.45-1.85 2.75v.5"/>
+        <path d="M12 19.25h.01"/>
+    </svg>
 );
 
 /** The chosen horizon icon, without the sunrise arrow. */
@@ -291,9 +291,9 @@ ${calcGuessBlocks(won)}
                     {/* a ghost of the guess row below, so choosing a chapter fills it in rather than swapping it out */}
                     <div className="flex items-center gap-2">
                         <Help>
-                            <button type="button" aria-label="How to play" title="How to play" className={stepper}
-                                    style={{ color: uiTheme.help }}>
-                                <InfoGlyph className="size-6"/>
+                            {/* the question mark, in the hint's own muted text, so the row reads as one */}
+                            <button type="button" aria-label="How to play" title="How to play" className={`${stepper} !text-play-muted`}>
+                                <QuestionGlyph className="size-6"/>
                             </button>
                         </Help>
                         <span aria-hidden="true" className="flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-dashed border-play-line bg-play-surface px-5 text-[16px] text-play-muted">
@@ -311,9 +311,10 @@ ${calcGuessBlocks(won)}
                                 arrow: "bg-play-sheet",
                             }}>
                                 <PopoverTrigger>
-                                    <button type="button" aria-label="You're not logged in. Show details" title="Save your progress" className={stepper}
-                                            style={{ color: uiTheme.notice }}>
-                                        <AlertGlyph className="size-6"/>
+                                    {/* the player, not logged in: as the menu shows it, a notice dot on the icon's top right, ringed in the page's dark */}
+                                    <button type="button" aria-label="You're not logged in. Show details" title="Save your progress" className={`relative ${stepper} !text-play-muted`}>
+                                        <UserRoundIcon className="size-[22px]" strokeWidth={1.75} aria-hidden="true"/>
+                                        <span aria-hidden="true" className="absolute right-2.5 top-2.5 size-2.5 rounded-full bg-ui-notice ring-2 ring-ui-bg"/>
                                     </button>
                                 </PopoverTrigger>
                                 <PopoverContent>

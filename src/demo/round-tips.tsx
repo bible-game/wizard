@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { StateUtil } from "@/core/util/state-util";
 import { PRACTICE } from "@/demo/practice";
 import { onZoom } from "@/demo/gridmap-handle";
-import { SHIMMER } from "@/demo/tutorial";
+import { ENTRANCE } from "@/demo/tutorial";
 import bible from "@/demo/bible.json";
 import "@/demo/tutorial.sass";
 
@@ -56,13 +56,13 @@ const ZOOM = "Zoom on the map to reveal more detail";
 /** The pointer the visitor zooms with: an arrow with a mouse or trackpad, a finger on a touch screen */
 const Pointer = () => {
     const Icon = fine() ? MousePointerIcon : PointerIcon;
-    return <Icon aria-hidden="true" className="row-note-glint size-3.5 shrink-0" strokeWidth={1.75}/>;
+    return <Icon aria-hidden="true" className="size-3.5 shrink-0" strokeWidth={1.75}/>;
 };
 
 /**
  * The first round's notes, in the guesses' own row, where the empty slots give their room (tutorial.sass hides them while
- * a note shows): before any guess, that zooming on the map reveals more, with the pointer that does it and a slow
- * shimmer passing over it (tutorial.sass), until the visitor zooms; once the first guess lands,
+ * a note shows): before any guess, that zooming on the map reveals more, with the pointer that does it, until the
+ * visitor zooms; once the first guess lands,
  * what it means, until the next guess takes a slot. Everything else the page already says
  */
 export default function RoundTips() {
@@ -71,7 +71,8 @@ export default function RoundTips() {
     const first = useRef<string | null>(null);
     // once the visitor has zoomed the map, the zoom note has done its job
     const zoomed = useRef(false);
-    // the clue's one shimmer, as the zoom note first arrives (tutorial.sass: the clue's pass, then the note's)
+    // the entrance, once, as the zoom note first arrives (tutorial.sass): the clue's shimmer, then the note, then the
+    // guess bar, each rising in as a guess's tile
     const shimmered = useRef(false);
 
     const check = useCallback(() => {
@@ -85,7 +86,8 @@ export default function RoundTips() {
         if (id === "zoom" && !shimmered.current) {
             shimmered.current = true;
             page.setAttribute("data-clue-shimmer", "");
-            window.setTimeout(() => page.removeAttribute("data-clue-shimmer"), SHIMMER + 200);
+            // kept until the last of the three (the clue, the zoom note, then the guess bar) is in
+            window.setTimeout(() => page.removeAttribute("data-clue-shimmer"), ENTRANCE.lead + ENTRANCE.sweep + ENTRANCE.rise * 2 + 200);
         }
         if (!id) { setNote(null); setBox(null); return; }
         if (id === "first") { remember(); first.current ??= explain(); }
@@ -109,10 +111,14 @@ export default function RoundTips() {
     }, [check]);
 
     if (!note || !box) return null;
-    return <motion.p key={note.id} role="status" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5, delay: 0.3 }}
+    // both notes come in as the page brings in a guess's tile (guess.tsx's Tile): the zoom note once the clue has
+    // arrived (the clue's entrance, tutorial.sass), the first-guess note with the guess beside it
+    const zoom = note.id === "zoom";
+    return <motion.p key={note.id} role="status" initial={{ opacity: 0, y: 6, scale: 0.94 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+                     transition={{ type: "spring", stiffness: 420, damping: 28, delay: zoom ? (ENTRANCE.lead + ENTRANCE.sweep) / 1000 : 0 }}
                      className="pointer-events-none fixed z-[30] flex items-center justify-center gap-2 rounded-lg border border-dashed border-play-line px-2.5 py-[3px] text-center text-[11px] leading-[13px] text-ui-muted"
                      style={{ left: box.x, top: box.y, width: box.width, minHeight: box.height }}>
-        {note.id === "zoom" ? <Pointer/> : null}
-        <span className={note.id === "zoom" ? "row-note-shimmer" : undefined}>{note.text}</span>
+        {zoom ? <Pointer/> : null}
+        <span>{note.text}</span>
     </motion.p>;
 }
