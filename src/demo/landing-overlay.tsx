@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "framer-motion";
-import { ArrowRightIcon, BookOpenTextIcon, ChartColumnIncreasingIcon, ChevronDownIcon, LayoutDashboardIcon, LightbulbIcon, MenuIcon, UserRoundIcon, UserRoundPlusIcon } from "lucide-react";
+import { ArrowRightIcon, BookOpenIcon, ChartColumnIcon, ChevronDownIcon, LightbulbIcon, MenuIcon, PlayIcon, UserRoundIcon, UserRoundPlusIcon } from "lucide-react";
 import GlowingCross from "@/app/home/glowing-cross";
 import { toast, Toaster } from "@/demo/toast";
 import { playTheme } from "@/core/style/play-theme";
@@ -50,60 +50,55 @@ const rise = (delay = 0.25) => ({ initial: { opacity: 0, y: 6, scale: 0.94 }, an
 const tile = { type: "spring" as const, stiffness: 420, damping: 28 };
 
 /**
- * The four steps, as the stars of a small constellation, in the order a day takes them: Play, where it starts, then
- * Read, Study and Stats, zigzagging down the page as a figure on a star chart does. Each star in its colour (the B's
- * runs, cool to warm, as the hero's stones go), lit with the step's icon: the map's own blocks for Play, an open book
- * for Read, a lightbulb for Study, a rising chart for Stats. Beside it its number and name in the mono, and beneath, in
- * the interface's quiet sans and never wrapping, what it's for, as the Figma's Landing 1.2.0 put it
+ * The four steps, in the order a day takes them, as a line of stars down the page, joined by a hairline that runs from
+ * one step's colour into the next's (the B's runs, cool to warm, as the hero's stones go). Each star is the step's own
+ * menu icon (app-header.tsx) in a small lit circle of its colour; beside it its number and name, small in the mono
+ * capitals, the name in its colour, and beneath a muted line on what it's for
  */
 const STOPS = [
-    { number: "01", name: "Play", what: "Visualise the Bible", icon: LayoutDashboardIcon, colour: playTheme.teal },
-    { number: "02", name: "Read", what: "Digest today’s chapter", icon: BookOpenTextIcon, colour: playTheme.purple },
+    { number: "01", name: "Play", what: "Visualise the Bible", icon: PlayIcon, colour: playTheme.teal },
+    { number: "02", name: "Read", what: "Digest today’s chapter", icon: BookOpenIcon, colour: playTheme.purple },
     { number: "03", name: "Study", what: "Stretch your understanding", icon: LightbulbIcon, colour: playTheme.rose },
-    { number: "04", name: "Stats", what: "Track your progress", icon: ChartColumnIncreasingIcon, colour: playTheme.gold },
+    { number: "04", name: "Stats", what: "Track your progress", icon: ChartColumnIcon, colour: playTheme.gold },
 ];
-/** How long a line of the figure takes to draw, and so how long the star it reaches waits to light (s) */
+/** How long the line to a step takes to draw, and so how long the step waits to light (s) */
 const LINE_FOR = 0.6;
 /** A colour at an opacity, from its hex */
 const tint = (hex: string, a: number) => `${hex}${Math.round(a * 255).toString(16).padStart(2, "0")}`;
 
-/** The constellation's measures, by the room it has: larger and more open on a wide screen */
-const measures = (width: number) => width >= 400
-    ? { star: 15, row: 120, zig: 80, label: 44, text: 16, mono: 12 }
-    : { star: 10, row: 90, zig: 42, label: 29, text: 13, mono: 11 };
 /**
- * The figure's shape: how far across each star sits (a share of `zig`) and how far down from the last (a share of
- * `row`), uneven as a real figure is; each reach across stays short enough that no line runs into the words above it
+ * The steps' measures, from the room they have (the map's place): spaced to fill its height, the circles and words
+ * sized in proportion, the words held to a size whose longest line still fits the width
  */
-const FIGURE = { across: [0, 0.8, 0.15, 1], down: [0, 1, 1.12, 0.92] };
+const measures = (width: number, room: number) => {
+    const row = Math.min(132, Math.max(84, room * 0.27));
+    const ring = Math.min(30, Math.max(19, row * 0.22));
+    const label = ring + 16;
+    const detail = Math.max(13, Math.min(18, row * 0.14, (width - ring - label - 8) / 13.5));
+    return { row, ring, label, icon: Math.round(ring * 0.95), mono: Math.max(11, Math.round(detail * 0.72)), detail };
+};
 
 /**
- * A star of the figure. Before the scroll reaches it, a faint point, so the whole figure can be made out from the
- * start; then it lights: a small lens in its colour (a fine ring about a faintly tinted disc, in a tight halo) and
- * within it the step's icon, drawn in its colour and glowing with it, as the stars light for a round's progress
+ * A step's star. Nothing until the scroll reaches it; then it lights: a circle of its colour, tinted within, its edge drawn finely, in a soft halo, and in it the step's icon
+ * in the colour, as the menu draws it
  */
-function Star({ colour, icon: Icon, r, lit, delay }: { colour: string; icon: typeof MenuIcon; r: number; lit: boolean; delay: number }) {
+function Star({ colour, icon: Icon, ring, size, lit, delay }: { colour: string; icon: typeof MenuIcon; ring: number; size: number; lit: boolean; delay: number }) {
     const ease = { duration: 0.5, ease: [0.22, 0.8, 0.24, 1] as const, delay: lit ? delay : 0 };
-    const ring = r * 1.75, size = r * 1.55;
     return <g>
-        <circle r={2.2} fill={tint("#ffffff", 0.55)}/>
         <motion.g initial={{ opacity: 0, scale: 0.6 }} animate={lit ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.6 }} transition={ease}>
-            <circle r={ring * 1.3} fill={tint(colour, 0.08)}/>
-            <circle r={ring} fill={tint(colour, 0.1)} stroke={tint(colour, 0.6)} strokeWidth={0.9}/>
-            <circle r={ring - 2.5} fill="none" stroke={tint(colour, 0.14)} strokeWidth={0.75}/>
-            <Icon x={-size / 2} y={-size / 2} width={size} height={size} color={colour} strokeWidth={1.6}
-                  style={{ filter: `drop-shadow(0 0 2.5px ${tint(colour, 0.85)})` }}/>
+            <circle r={ring * 1.22} fill={tint(colour, 0.07)}/>
+            <circle r={ring} fill={tint(colour, 0.12)} stroke={tint(colour, 0.55)} strokeWidth={1}/>
+            <Icon x={-size / 2} y={-size / 2} width={size} height={size} color={colour} strokeWidth={1.5}/>
         </motion.g>
     </g>;
 }
 
 /**
- * The constellation, as far as the scroll has come: `shown` stars (1 to 4). The stars zigzag down, the whole centred
- * in its room; each step of the scroll draws the next line of the figure on (a hairline running from one star's
- * colour into the next's, stopping short of each), then the star it reaches lights, and its words arrive beside it.
- * Scrolling back puts them out again
+ * The steps, as far as the scroll has come: `shown` of them (1 to 4). One upright line of stars, the stars and their
+ * words centred together in the width; each step of the scroll draws the line on to the next, then that star lights
+ * and its words arrive beside it. Scrolling back puts them out again
  */
-function Constellation({ shown }: { shown: number }) {
+function Steps({ shown, room }: { shown: number; room: number }) {
     const box = useRef<HTMLDivElement>(null);
     const labels = useRef<(HTMLDivElement | null)[]>([]);
     const [width, setWidth] = useState(0);
@@ -121,51 +116,39 @@ function Constellation({ shown }: { shown: number }) {
         document.fonts?.ready.then(measure);
         return () => observer.disconnect();
     }, []);
-    const m = measures(width);
-    const used = m.zig + m.label + label;
-    const pad = Math.max(m.star * 2, (width - used) / 2);
-    const at = (i: number) => ({
-        x: pad + FIGURE.across[i] * m.zig,
-        y: m.star * 2 + FIGURE.down.slice(0, i + 1).reduce((sum, d) => sum + d, 0) * m.row,
-    });
-    const height = at(STOPS.length - 1).y + m.star * 2 + 12;
+    const m = measures(width, room);
+    const x = Math.max(m.ring + 2, (width - m.ring - m.label - label) / 2 + m.ring);
+    const y = (i: number) => m.ring * 1.3 + i * m.row;
+    const height = y(STOPS.length - 1) + m.ring * 1.3;
 
     return <div ref={box} className="relative mx-auto w-full max-w-[30rem]" style={{ height }}>
         <svg width={width} height={height} className="absolute inset-0 overflow-visible" aria-hidden="true">
             <defs>
-                {STOPS.slice(1).map((to, i) => {
-                    const a = at(i), b = at(i + 1);
-                    return <linearGradient key={i} id={`figure-${i}`} gradientUnits="userSpaceOnUse" x1={a.x} y1={a.y} x2={b.x} y2={b.y}>
-                        <stop offset="0" stopColor={STOPS[i].colour}/><stop offset="1" stopColor={to.colour}/>
-                    </linearGradient>;
-                })}
+                {STOPS.slice(1).map((to, i) => <linearGradient key={i} id={`steps-${i}`} gradientUnits="userSpaceOnUse" x1={x} y1={y(i)} x2={x} y2={y(i + 1)}>
+                    <stop offset="0" stopColor={STOPS[i].colour}/><stop offset="1" stopColor={to.colour}/>
+                </linearGradient>)}
             </defs>
-            {/* the figure's lines, each stopping short of its stars, as a chart draws them */}
             {STOPS.slice(1).map((_, i) => {
-                const a = at(i), b = at(i + 1), dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy), gap = m.star * 2.15;
-                const ux = dx / len, uy = dy / len, drawn = i + 1 < shown;
-                return <motion.line key={i} x1={a.x + ux * gap} y1={a.y + uy * gap} x2={b.x - ux * gap} y2={b.y - uy * gap}
-                                    stroke={`url(#figure-${i})`} strokeWidth={1} strokeLinecap="round"
-                                    initial={{ pathLength: 0, opacity: 0 }} animate={drawn ? { pathLength: 1, opacity: 0.7 } : { pathLength: 0, opacity: 0 }}
+                const drawn = i + 1 < shown, gap = m.ring * 1.22 + 4;
+                return <motion.line key={i} x1={x} y1={y(i) + gap} x2={x} y2={y(i + 1) - gap} stroke={`url(#steps-${i})`} strokeWidth={1}
+                                    initial={{ pathLength: 0, opacity: 0 }} animate={drawn ? { pathLength: 1, opacity: 0.6 } : { pathLength: 0, opacity: 0 }}
                                     transition={{ duration: drawn ? LINE_FOR : 0.15, ease: [0.45, 0, 0.25, 1] }}/>;
             })}
-            {STOPS.map((stop, i) => {
-                const { x, y } = at(i);
-                return <g key={stop.name} transform={`translate(${x} ${y})`}>
-                    <Star colour={stop.colour} icon={stop.icon} r={m.star} lit={i < shown} delay={i === 0 ? 0.15 : LINE_FOR * 0.85}/>
-                </g>;
-            })}
+            {STOPS.map((stop, i) => <g key={stop.name} transform={`translate(${x} ${y(i)})`}>
+                <Star colour={stop.colour} icon={stop.icon} ring={m.ring} size={m.icon} lit={i < shown} delay={i === 0 ? 0.15 : LINE_FOR * 0.85}/>
+            </g>)}
         </svg>
-        {STOPS.map(({ number, name, what, colour }, i) => {
-            const { x, y } = at(i), lit = i < shown;
-            return <motion.div key={name} ref={el => { labels.current[i] = el; }} className="absolute flex flex-col gap-1 whitespace-nowrap"
-                               style={{ left: x + m.label, top: y - (m.mono * 1.4 + 4 + m.text * 1.25) / 2 }}
+        {STOPS.map(({ number, name, what }, i) => {
+            const lit = i < shown;
+            return <motion.div key={name} ref={el => { labels.current[i] = el; }} className="absolute flex flex-col whitespace-nowrap"
+                               style={{ left: x + m.label, top: y(i) - (m.mono * 1.4 + 4 + m.detail * 1.3) / 2 }}
                                initial={{ opacity: 0, x: -4 }} animate={lit ? { opacity: 1, x: 0 } : { opacity: 0, x: -4 }}
                                transition={lit ? { duration: 0.5, ease: "easeOut", delay: (i === 0 ? 0.15 : LINE_FOR * 0.85) + 0.1 } : { duration: 0.15 }}>
+                {/* its number and name, small in the mono capitals, the name in its colour */}
                 <span className="flex items-center gap-1.5 font-mono uppercase tracking-[0.16em]" style={{ fontSize: m.mono, lineHeight: 1.4 }}>
-                    <span className="tabular-nums text-ui-muted">{number}</span><span style={{ color: colour }}>{name}</span>
+                    <span className="tabular-nums text-ui-muted">{number}</span><span style={{ color: STOPS[i].colour }}>{name}</span>
                 </span>
-                <span className="leading-tight text-ui-muted" style={{ fontSize: m.text }}>{what}</span>
+                <span className="mt-1 text-ui-muted" style={{ fontSize: m.detail, lineHeight: 1.3 }}>{what}</span>
             </motion.div>;
         })}
     </div>;
@@ -313,11 +296,11 @@ export default function LandingOverlay({ onPlay }: { onPlay: () => void }) {
             </div> : null}
 
             {/* the map's place, through the flow: the route, a stop more each beat */}
-            {/* the figure sits nearer the words above it than the foot, so the two read as one */}
-            {map ? <div className="absolute flex items-start justify-center px-4" style={{ ...at(map), paddingTop: Math.min(64, map.height * 0.1) }}>
+            {/* the figure fills the map's place, centred in it */}
+            {map ? <div className="absolute flex items-center justify-center px-4" style={at(map)}>
                 <AnimatePresence>
                     {kind === "flow" ? <motion.div key="flow" className="w-full" exit={{ opacity: 0, transition: { duration: 0.2 } }}>
-                        <Constellation shown={beat}/>
+                        <Steps shown={beat} room={map.height}/>
                     </motion.div> : null}
                 </AnimatePresence>
             </div> : null}
