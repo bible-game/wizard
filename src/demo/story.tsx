@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, MotionValue, useScroll, useSpring, useTransform } from "framer-motion";
-import { ChevronDownIcon, MailIcon, PlayIcon } from "lucide-react";
+import { ArrowRightIcon, ChevronDownIcon, MailIcon, PlayIcon } from "lucide-react";
 import { SiDiscord, SiGithub } from "@icons-pack/react-simple-icons";
 import Header from "@/demo/header";
 import StoryEmblem from "@/demo/story-emblem";
@@ -171,10 +171,12 @@ export default function Story() {
         <div className="sticky top-0 flex h-svh flex-col overflow-hidden">
             {STAGES.map((st, i) => st.colour ? <Tint key={i} s={s} at={i} colour={st.colour}/> : null)}
             <Header stars={0} end={<motion.div style={shown(headerPlay)}>
-                {/* the header's Key Figure slot, as Log in: a small glass chip saying Play (Figma: Key Figure 1.2.0, Figure=Play) */}
+                {/* a quiet text link, as the first-run tutorial's Skip: muted, brightening on hover; the arrow says it
+                    goes to another page, and nudges right on hover */}
                 <button type="button" onClick={play} aria-label="Play today’s chapter"
-                        className="flex h-9 items-center rounded-lg border border-ui-line bg-ui-surface px-3 text-[13px] font-semibold text-ui-text transition-colors hover:bg-ui-raised">
+                        className="group flex h-11 items-center gap-1 px-2 text-[14px] text-ui-muted transition-colors hover:text-ui-text">
                     Play
+                    <ArrowRightIcon aria-hidden="true" className="size-[15px] transition-transform group-hover:translate-x-0.5" strokeWidth={2}/>
                 </button>
             </motion.div>}/>
             <main className="relative mx-auto flex w-full max-w-[36rem] flex-1 flex-col">
