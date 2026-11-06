@@ -1,0 +1,34 @@
+// The first-visit tutorial, made of the genuine Play page. onboarding.tsx wraps the page and sets data-reveal on the
+// wrapper (0 to 2) from its very first paint, so the page is never seen whole and then hidden; each part comes in as
+// its step arrives. It holds parts back by their opacity only, so nothing moves: each part's space is there, empty,
+// before it arrives. The tutorial's words take the clue's place, and its Next the guess bar's; both come back at the end
+
+// how a part arrives (and how the clue, the header and the bar come back): always, so they also ease back at the end
+[data-game-ready] header, [data-game-ready] > div > section > button:first-child > p, [data-game-ready] > div.flex-1,
+[data-game-ready] ol[aria-label=Guesses], [data-game-ready] > section
+  transition: opacity 0.7s cubic-bezier(0.22, 0.8, 0.24, 1), transform 0.7s cubic-bezier(0.22, 0.8, 0.24, 1)
+
+// while it runs the page only shows, it isn't played; the header gives its place to the progress and Skip, the clue to
+// the tutorial's words, the guess bar to its Next
+[data-reveal] [data-game-ready]
+  pointer-events: none
+  header, > div > section > button:first-child > p, > section
+    opacity: 0
+
+// 0: the words alone; 1: then the map; 2: then the guesses (and a guess made for the visitor to watch)
+[data-reveal="0"] [data-game-ready] > div.flex-1
+  opacity: 0
+  transform: scale(0.985)
+[data-reveal="0"], [data-reveal="1"]
+  [data-game-ready] ol[aria-label=Guesses]
+    opacity: 0
+
+// the first reading, explained once, in the guesses' own row: the empty slots give their room to it (round-tips.tsx sets
+// data-first-reading on the page and writes it there)
+[data-first-reading] ol[aria-label=Guesses] > li[aria-hidden]
+  opacity: 0
+
+@media (prefers-reduced-motion: reduce)
+  [data-game-ready] header, [data-game-ready] > div > section > button:first-child > p, [data-game-ready] > div.flex-1,
+  [data-game-ready] ol[aria-label=Guesses], [data-game-ready] > section
+    transition: none
