@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "vite --port 5180",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview --port 5180"
+    "preview": "vite preview --port 5180",
+    "check:emblems": "esbuild scripts/check-emblems.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --log-level=warning | node --input-type=module"
   },
   "dependencies": {
     "@icons-pack/react-simple-icons": "^13.7.0",

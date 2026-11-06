@@ -50,7 +50,7 @@ export default function StoryEmblem({ stages, at, height = 168 }: { stages: Plac
     const depth = useRef<{ bloom: SVGGElement | null; core: SVGGElement | null }>({ bloom: null, core: null });
     const bloom = useRef<SVGGElement | null>(null);
     // each stage's colours, and where each stone sits in the wave as it leaves that stage
-    const looks = useRef(stages.map(stage => stage.map((p, k) => ({ colour: p.dim ? DIM : morphCells[k].colour.b, opacity: p.hidden ? 0 : 1, wave: centroid(p.points)[1] / HEIGHT }))));
+    const looks = useRef(stages.map(stage => stage.map((p, k) => ({ colour: p.dim ? DIM : p.colour ?? morphCells[k].colour.b, opacity: p.hidden ? 0 : 1, wave: centroid(p.points)[1] / HEIGHT }))));
 
     /** The shape as the scroll has it */
     const draw = (s: number) => {

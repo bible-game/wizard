@@ -154,8 +154,8 @@ export const bCells = tracedB.map(glass);
 // falls round the bowls, each stone taking the colour where its centre sits: cool on the left, warm on the right, each
 // top to bottom. The cross is laid out the same way (its left half cool, its right half warm, each top to bottom) and
 // takes exactly the B's colours, in the same proportions.
-const COOL = [[0, "#8f8dff"], [0.45, "#6d9cff"], [0.8, "#40e6f2"], [1, "#55f0bf"]] as const;
-const WARM = [[0, "#ff5244"], [0.28, "#ff7d35"], [0.5, "#ffb12e"], [0.72, "#ffd034"], [1, "#ffd94a"]] as const;
+export const COOL = [[0, "#8f8dff"], [0.45, "#6d9cff"], [0.8, "#40e6f2"], [1, "#55f0bf"]] as const;
+export const WARM = [[0, "#ff5244"], [0.28, "#ff7d35"], [0.5, "#ffb12e"], [0.72, "#ffd034"], [1, "#ffd94a"]] as const;
 type Run = readonly (readonly [number, string])[];
 
 const rgb = (hex: string) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
@@ -167,7 +167,8 @@ export function mix(a: string, b: string, t: number): string {
     return toHex(x.map((c, k) => c + (y[k] - c) * t));
 }
 
-function sample(run: Run, t: number): string {
+/** The colour `t` (0-1) of the way along one of the B's runs (COOL or WARM) */
+export function sample(run: Run, t: number): string {
     const at = Math.min(1, Math.max(0, t));
     const k = run.findIndex(([offset]) => offset >= at);
     if (k <= 0) return run[0][1];
