@@ -10,9 +10,9 @@ import "@/demo/tutorial.sass";
  */
 type Step = { id: string; text: string; next: string; demo?: boolean };
 const STEPS: Step[] = [
-    { id: "clue", text: "Each day a chapter is summarised", next: "Next" },
-    { id: "map", text: "Each square on the map is a chapter", next: "Next" },
-    { id: "guesses", text: "Each of your 5 guesses point you toward the answer", next: "Play", demo: true },
+    { id: "clue", text: "Each day a chapter is summarised here", next: "Next" },
+    { id: "map", text: "Every square is a chapter of the Bible", next: "Next" },
+    { id: "guesses", text: "You have 5 guesses, each pointing you closer", next: "Play", demo: true },
 ];
 
 /**
@@ -29,7 +29,7 @@ const DEMO: { cell: string; label: string; glide?: { group: string } | { item: s
     { cell: "PSA/127", label: "Guess Psalms 127", found: true },
 ];
 /** Into the guesses step (ms): when the first begins, then each guess's glide, pick and guess, and the gap to the next */
-const START = 900, GLIDE_FOR = 1400, PICK_AFTER = 1600, GUESS_AFTER = 1300, NEXT_AFTER = 1200;
+const START = 600, GLIDE_FOR = 940, PICK_AFTER = 1075, GUESS_AFTER = 875, NEXT_AFTER = 805;
 
 /** The clue's sizes, as the Play page's (app/play/[game]/summary.tsx): the largest that keeps the words to two lines */
 const SIZES = [18, 17, 16, 15];
@@ -46,8 +46,18 @@ const bar = (page: Element) => page.querySelector(":scope > section");
 type Box = { x: number; y: number; width: number; height: number };
 const boxOf = (el: Element | null | undefined): Box | null => { if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, width: r.width, height: r.height }; };
 
-/** Words in the clue's own type, at the largest of its sizes that keeps them to two lines */
-function Words({ text }: { text: string }) {
+/** How long a line's one shimmer takes, from its arrival to the light's leaving it (ms; tutorial.sass, $lead + $sweep) */
+export const SHIMMER = 350 + 2400;
+
+/**
+ * Words in the clue's own type, at the largest of its sizes that keeps them to two lines, with the clue's one shimmer;
+ * `onLit` once it has passed (straight away under reduced motion, where there's none)
+ */
+function Words({ text, onLit }: { text: string; onLit: () => void }) {
+    useEffect(() => {
+        const timer = window.setTimeout(onLit, window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : SHIMMER);
+        return () => clearTimeout(timer);
+    }, [text]); // eslint-disable-line react-hooks/exhaustive-deps
     const p = useRef<HTMLParagraphElement>(null);
     const [size, setSize] = useState(SIZES[0]);
     useLayoutEffect(() => {
@@ -59,7 +69,7 @@ function Words({ text }: { text: string }) {
         }
         setSize(SIZES[SIZES.length - 1]);
     }, [text]);
-    return <p ref={p} className="font-mono font-normal leading-[1.45] text-play-text text-center text-balance" style={{ fontSize: size }}>{text}</p>;
+    return <p ref={p} className="clue-shimmer font-mono font-normal leading-[1.45] text-play-text text-center text-balance" style={{ fontSize: size }}>{text}</p>;
 }
 
 /** A stage of the progress: an empty ring to come, a gold ring for now, and, once done, filled with a tick drawn in */
@@ -79,7 +89,7 @@ function Stage({ state }: { state: "done" | "now" | "next" }) {
  * button's place and style; then the map; then the guesses, where a guess is made for the visitor to watch: the page's
  * own, on its own map: four, narrowing in (testament, division, book) to the answer, each gliding in, picking and guessing, so the
  * tiles land and the map closes in as they would. The
- * progress (a circle a stage) and Skip take the header's place; on the last step Skip becomes Restart. At the end (or
+ * progress (a circle a stage) and Skip take the header's place; once every stage is done, Skip becomes Restart. At the end (or
  * on Skip, or Escape) the page's parts come back. `onReset` sets the round back to empty when a guess was watched, at
  * the end and on Restart. It waits for the page's own first-visit sheet (the cookie notice)
  */
@@ -89,8 +99,12 @@ export default function Tutorial({ onStage, onReset, onDone }: { onStage: (stage
     const [at, setAt] = useState(0);
     const [boxes, setBoxes] = useState<{ header: Box | null; clue: Box | null; bar: Box | null }>({ header: null, clue: null, bar: null });
     const demoed = useRef(false);
-    // while the guesses are being shown, Next waits (greyed, with a spinner); once they've all landed, the last stage is done
+    // while the guesses are being shown, Next waits (greyed, with a spinner); once they've all landed,
+    // the last stage is done, and Skip becomes Restart
     const [demoing, setDemoing] = useState(false);
+    // whether this step's words have had their shimmer: Next waits for it
+    const [lit, setLit] = useState(false);
+    useEffect(() => setLit(false), [at]);
     const [shown, setShown] = useState(false);
     const step = STEPS[at];
 
@@ -151,9 +165,9 @@ export default function Tutorial({ onStage, onReset, onDone }: { onStage: (stage
     const finish = useCallback(() => { remember(); if (demoed.current) onReset(); onDone(); }, [onReset, onDone]);
     const restart = useCallback(() => { if (demoed.current) onReset(); demoed.current = false; setShown(false); setAt(0); }, [onReset]);
     const advance = useCallback(() => {
-        if (demoing) return;
+        if (demoing || !lit) return;
         if (at >= STEPS.length - 1) finish(); else setAt(a => Math.min(a + 1, STEPS.length - 1));
-    }, [at, demoing, finish]);
+    }, [at, demoing, lit, finish]);
     useEffect(() => {
         if (!page) return;
         const key = (e: KeyboardEvent) => {
@@ -167,16 +181,15 @@ export default function Tutorial({ onStage, onReset, onDone }: { onStage: (stage
 
     if (!page) return null;
     const place = (b: Box) => ({ left: b.x, top: b.y, width: b.width, height: b.height });
-    const last = at === STEPS.length - 1;
     const link = "group flex h-11 shrink-0 items-center gap-1 px-2 text-[14px] text-ui-muted transition-colors hover:text-ui-text";
 
     return <div ref={root} tabIndex={-1} role="region" aria-label="How to play" className="pointer-events-none fixed inset-0 z-[65] outline-none">
-        {/* the progress, a circle a stage, and Skip (Restart, on the last), in the header's place */}
+        {/* the progress, a circle a stage, and Skip (Restart, once every stage is done), in the header's place */}
         {boxes.header ? <div className="pointer-events-auto absolute flex items-center justify-between pl-4 pr-2" style={place(boxes.header)}>
             <ol aria-label={`Step ${at + 1} of ${STEPS.length}`} className="flex items-center gap-2">
                 {STEPS.map((s, i) => <li key={s.id} aria-hidden="true"><Stage state={i < at || (i === at && shown) ? "done" : i === at ? "now" : "next"}/></li>)}
             </ol>
-            {last ?
+            {shown ?
                 <button type="button" onClick={restart} className={link}><RotateCcwIcon aria-hidden="true" className="size-[14px] transition-transform group-hover:-rotate-45" strokeWidth={2}/>Restart</button> :
                 <button type="button" onClick={finish} className={link}>Skip<ArrowRightIcon aria-hidden="true" className="size-[15px] transition-transform group-hover:translate-x-0.5" strokeWidth={2}/></button>}
         </div> : null}
@@ -186,15 +199,16 @@ export default function Tutorial({ onStage, onReset, onDone }: { onStage: (stage
             <AnimatePresence mode="wait">
                 <motion.div key={step.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
                             transition={{ duration: 0.35, ease: [0.22, 0.8, 0.24, 1] }}>
-                    <Words text={step.text}/>
+                    <Words text={step.text} onLit={() => setLit(true)}/>
                 </motion.div>
             </AnimatePresence>
         </div> : null}
 
-        {/* Next, in the guess button's place and style; greyed, with a spinner, while the guesses are being shown */}
+        {/* Next, in the guess button's place and style: greyed until the words have had their shimmer, and with a spinner
+            while the guesses are being shown */}
         {boxes.bar ? <div className="absolute flex flex-col justify-center px-4 pb-2" style={{ ...place(boxes.bar), height: Math.min(boxes.bar.height, 100) }}>
-            <button type="button" onClick={advance} disabled={demoing} aria-busy={demoing}
-                    className={`pointer-events-auto flex h-12 w-full items-center justify-center gap-2 rounded-lg px-5 text-[16px] font-medium transition-colors duration-300 active:scale-[0.98] ${demoing ? "bg-play-raised text-play-faint" : "bg-play-text text-play-bg"}`}>
+            <button type="button" onClick={advance} disabled={demoing || !lit} aria-busy={demoing}
+                    className={`pointer-events-auto flex h-12 w-full items-center justify-center gap-2 rounded-lg px-5 text-[16px] font-medium transition-colors duration-300 active:scale-[0.98] ${demoing || !lit ? "bg-play-raised text-play-faint" : "bg-play-text text-play-bg"}`}>
                 {demoing ?
                     <span role="status" aria-label="Showing a round" className="flex items-center gap-1.5">
                         {[0, 1, 2].map(i => <motion.span key={i} className="size-1.5 rounded-full bg-current"

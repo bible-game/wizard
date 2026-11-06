@@ -23,12 +23,59 @@
   [data-game-ready] ol[aria-label=Guesses]
     opacity: 0
 
-// the first reading, explained once, in the guesses' own row: the empty slots give their room to it (round-tips.tsx sets
-// data-first-reading on the page and writes it there)
-[data-first-reading] ol[aria-label=Guesses] > li[aria-hidden]
+// the first round's notes (how to zoom, then the first reading), in the guesses' own row: the empty slots give their
+// room to them (round-tips.tsx sets data-row-note, "zoom" or "first", on the page and writes them there)
+[data-row-note] ol[aria-label=Guesses] > li[aria-hidden]
   opacity: 0
+
+// The shimmer: a soft light passing once across words as they arrive, so the eye is led from one to the next without
+// anything moving. Each line sits a little lowered ahead of the light and at its full colour behind it, so one pass
+// leaves it lit as it should be. First the clue (the tutorial's words in its place, then the real clue as the zoom note
+// arrives), then the zoom note, its pointer brightening as the light passes. tutorial.tsx holds Next until the words'
+// pass is done ($sweep and $lead there too: SHIMMER)
+$sweep: 2.4s
+$lead: 0.35s
+
+.clue-shimmer, [data-clue-shimmer] > div > section > button:first-child > p
+  background: linear-gradient(100deg, var(--ui-text) 42%, #ffffff 50%, rgb(from var(--ui-text) r g b / 0.72) 58%) 0 0 / 260% 100%
+  -webkit-background-clip: text
+  background-clip: text
+  color: transparent
+  animation: shimmer-sweep $sweep ease-in-out $lead 1 both
+
+// the zoom note's: its muted text, lit to the text's white as the light passes, after the clue's
+.row-note-shimmer
+  background: linear-gradient(100deg, var(--ui-muted) 42%, var(--ui-text) 50%, var(--ui-muted) 58%) 0 0 / 260% 100%
+  -webkit-background-clip: text
+  background-clip: text
+  color: transparent
+  animation: shimmer-sweep $sweep ease-in-out $lead + $sweep 1 both
+
+.row-note-glint
+  color: var(--ui-muted)
+  animation: row-note-glint $sweep ease-in-out $lead + $sweep 1 both
+
+@keyframes shimmer-sweep
+  from
+    background-position: 100% 0
+  to
+    background-position: 0% 0
+
+@keyframes row-note-glint
+  0%, 45%, 100%
+    color: var(--ui-muted)
+  18%
+    color: var(--ui-text)
 
 @media (prefers-reduced-motion: reduce)
   [data-game-ready] header, [data-game-ready] > div > section > button:first-child > p, [data-game-ready] > div.flex-1,
   [data-game-ready] ol[aria-label=Guesses], [data-game-ready] > section
     transition: none
+  .clue-shimmer, [data-clue-shimmer] > div > section > button:first-child > p, .row-note-shimmer, .row-note-glint
+    animation: none
+  .clue-shimmer, [data-clue-shimmer] > div > section > button:first-child > p
+    background: none
+    color: var(--ui-text)
+  .row-note-shimmer
+    background: none
+    color: var(--ui-muted)
