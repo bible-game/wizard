@@ -12,6 +12,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["vite", "--port", "5181", "--strictPort"],
       "port": 5181
+    },
+    {
+      "name": "webapp",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "../webapp", "run", "dev", "--", "--port", "3000"],
+      "port": 3000
     }
   ]
 }

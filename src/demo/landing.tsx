@@ -9,7 +9,7 @@ import StudyStep, { STUDY_LENGTH } from "@/demo/study-step";
 import Rail from "@/demo/rail";
 import { toast, Toaster } from "@/demo/toast";
 import { PLAY_ROUTE } from "@/demo/first-run";
-import bible from "@/demo/bible.json";
+import bible from "@/core/config/bible.json";
 
 const READ_TIP: StepTip = { id: "explain-read", target: "mark", above: true, title: "02 · Read it", text: "The chapter you found opens in the reader. Most take about five minutes; today’s takes one." };
 const STUDY_TIP: StepTip = { id: "explain-study", target: "answers", title: "03 · Think it through", text: "One question on what it means, with the verses that explain it. A right answer earns one more star." };

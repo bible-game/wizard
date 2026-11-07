@@ -1,4 +1,4 @@
-import bible from "@/demo/bible.json";
+import bible from "@/core/config/bible.json";
 import colours from "@/app/play/[game]/map/config/colours.json";
 import { score } from "@/app/play/[game]/score";
 import { PRACTICE } from "@/demo/practice";

@@ -1,8 +1,10 @@
+"use client"
+
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRightIcon, RotateCcwIcon } from "lucide-react";
-import { cameraOf, glideTo, liveMap } from "@/demo/gridmap-handle";
-import "@/demo/tutorial.sass";
+import { cameraOf, glideTo, liveMap } from "@/app/play/[game]/tutorial/map-handle";
+import "@/app/play/[game]/tutorial/tutorial.sass";
 
 /**
  * A step of the tutorial: what it says (in the clue's place), its Next (in the guess button's place), and whether a
@@ -40,13 +42,12 @@ const START = 350 + 350 + 2400 * 0.75;
 const SIZES = [18, 17, 16, 15];
 
 /** Set once the tutorial has been seen (finished or skipped), so a returning visitor goes straight to the game */
-const SEEN = "wizard.tutorial";
+const SEEN = "tutorial-seen";
 export const tutorialSeen = () => { try { return localStorage.getItem(SEEN) === "1"; } catch { return false; } };
 const remember = () => { try { localStorage.setItem(SEEN, "1"); } catch { /* it just shows again */ } };
 
-/** The Play page's parts, by the webapp's structure (app/play/[game]/game.tsx, summary.tsx) */
-const clue = (page: Element) => page.querySelector(":scope > div > section > button:first-child");
-const bar = (page: Element) => page.querySelector(":scope > section");
+/** The Play page's parts, by their hooks (data-play-part in game.tsx, summary.tsx) */
+const part = (page: Element, name: string) => page.querySelector(`[data-play-part=${name}]`);
 
 type Box = { x: number; y: number; width: number; height: number };
 const boxOf = (el: Element | null | undefined): Box | null => { if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, width: r.width, height: r.height }; };
@@ -140,7 +141,7 @@ export default function Tutorial({ onStage, onReset, onDone }: { onStage: (stage
     // where the progress, the words and Next go: the header's, the clue's and the guess bar's places
     const measure = useCallback(() => {
         if (!page) return;
-        setBoxes({ header: boxOf(page.querySelector("header")), clue: boxOf(clue(page)), bar: boxOf(bar(page)) });
+        setBoxes({ header: boxOf(part(page, "header")), clue: boxOf(part(page, "clue")), bar: boxOf(part(page, "bar")) });
     }, [page]);
     useLayoutEffect(measure, [measure]);
     useEffect(() => {

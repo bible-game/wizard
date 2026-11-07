@@ -12,7 +12,7 @@ import SignUp from "@/demo/sign-up";
 import { flyStar } from "@/demo/fly";
 import { toast, Toaster } from "@/demo/toast";
 import type { StepTip } from "@/demo/tour";
-import bible from "@/demo/bible.json";
+import bible from "@/core/config/bible.json";
 
 /** Where the landing page's Play goes: today's game, which a first visit is walked into */
 export const PLAY_ROUTE = "#/play";

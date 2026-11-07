@@ -2,7 +2,7 @@
 Copies the webapp's Play page into the wizard, unchanged, with everything of the webapp's own it imports, so the first-run
 tutorial overlays the genuine page. What only works on the server or against the services (Next, actions, sign-in) is
 not copied: stand-ins take their place (the actions and sign-in at their own paths under src/core, each marked as a
-stand-in; Next, SWR and HeroUI in src/web-shims, aliased in vite.config.ts). Run again after Play changes in the webapp:
+stand-in; Next, SWR, HeroUI and Sentry in src/web-shims, aliased in vite.config.ts). Run again after Play changes in the webapp:
     python3 scripts/sync-play.py [--dry]
 A file the wizard already has and that differs from the webapp's is reported, not overwritten.
 """
@@ -10,7 +10,10 @@ import os, re, shutil, sys
 
 WEB = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../webapp/src"))
 WIZ = os.path.abspath(os.path.join(os.path.dirname(__file__), "../src"))
-ROOTS = ["app/play/[game]/game.tsx", "app/play/play.sass"]
+# the Play page, the first-visit tutorial and round notes that sit on it, and the home page's landing over it (their
+# hosts, tutorial/play-host.tsx and home/home-host.tsx, are the webapp's own: the wizard's is src/demo/onboarding.tsx)
+ROOTS = ["app/play/[game]/game.tsx", "app/play/play.sass", "app/play/[game]/tutorial/tutorial.tsx",
+         "app/play/[game]/tutorial/round-tips.tsx", "app/home/landing-overlay.tsx"]
 # server-only or service-bound: the wizard has stand-ins at these paths, so they're not followed
 SHIMMED = ("core/action/", "core/util/auth-")
 IMPORT = re.compile(r"""(?:import|export)[^'"]*?from\s+['"]([^'"]+)['"]|import\s+['"]([^'"]+)['"]""")

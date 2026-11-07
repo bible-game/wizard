@@ -1,14 +1,14 @@
+"use client"
+
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { MousePointerIcon, PointerIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { StateUtil } from "@/core/util/state-util";
-import { PRACTICE } from "@/demo/practice";
-import { onZoom } from "@/demo/gridmap-handle";
-import { ENTRANCE } from "@/demo/tutorial";
-import bible from "@/demo/bible.json";
-import "@/demo/tutorial.sass";
+import { onZoom } from "@/app/play/[game]/tutorial/map-handle";
+import { ENTRANCE } from "@/app/play/[game]/tutorial/tutorial";
+import "@/app/play/[game]/tutorial/tutorial.sass";
 
-const SEEN = "wizard.round-tips";
+const SEEN = "round-tips-seen";
 export const roundTipsSeen = () => { try { return localStorage.getItem(SEEN) === "1"; } catch { return false; } };
 const remember = () => { try { localStorage.setItem(SEEN, "1"); } catch { /* it shows again */ } };
 
@@ -16,16 +16,16 @@ const remember = () => { try { localStorage.setItem(SEEN, "1"); } catch { /* it 
 const chapterName = (book: string, chapter: string) => `${book === "Psalms" ? "Psalm" : book} ${chapter}`;
 
 /** Where a book sits: its testament and division, as the Bible's structure has them */
-function placeOf(book: string): { testament: string; division: string } | null {
-    for (const testament of (bible as any).testaments)
+function placeOf(bible: any, book: string): { testament: string; division: string } | null {
+    for (const testament of bible.testaments)
         for (const division of testament.divisions)
             if (division.books.some((b: any) => b.name === book)) return { testament: testament.name, division: division.name };
     return null;
 }
 
 /** Where the answer must be, as narrowly as the guess shows it: its book, its division, or its testament */
-function narrowed(guess: string, answer: string): string {
-    const g = placeOf(guess), a = placeOf(answer);
+function narrowed(bible: any, guess: string, answer: string): string {
+    const g = placeOf(bible, guess), a = placeOf(bible, answer);
     if (!g || !a) return "";
     if (guess === answer) return `in ${answer}`;
     if (g.division === a.division) return `in ${a.division.replace(/^The /, "the ")}`;
@@ -37,11 +37,11 @@ function narrowed(guess: string, answer: string): string {
  * reads: how far the answer is from the guess (in full, where the tile has it short), which way, and where it must be. Play
  * keeps the guess (its distance negative when the answer comes later)
  */
-function explain(): string | null {
-    const guess = StateUtil.getGame(PRACTICE.id).guesses[0];
+function explain(bible: any, answer: { id: number; book: string }): string | null {
+    const guess: any = StateUtil.getGame(answer.id).guesses[0];
     if (!guess) return null;
     const distance = Number(guess.distance ?? guess.closeness?.distance), later = distance < 0;
-    const where = narrowed(guess.book, PRACTICE.book);
+    const where = narrowed(bible, guess.book, answer.book);
     const verses = `${Math.abs(distance).toLocaleString("en")} ${Math.abs(distance) === 1 ? "verse" : "verses"}`;
     return `The answer is ${verses} ${later ? "after" : "before"} ${chapterName(guess.book, guess.chapter)}${where ? `, ${where}` : ""}.`;
 }
@@ -65,7 +65,7 @@ const Pointer = () => {
  * visitor zooms; once the first guess lands,
  * what it means, until the next guess takes a slot. Everything else the page already says
  */
-export default function RoundTips() {
+export default function RoundTips({ passage, bible }: { passage?: { id: number; book: string }; bible: any }) {
     const [note, setNote] = useState<Note | null>(null);
     const [box, setBox] = useState<Box | null>(null);
     const first = useRef<string | null>(null);
@@ -78,9 +78,10 @@ export default function RoundTips() {
     const check = useCallback(() => {
         const page = document.querySelector("[data-game-ready]");
         if (!page) return;
-        const tiles = page.querySelectorAll("ol[aria-label=Guesses] > li:not([aria-hidden])").length;
-        const empty = [...page.querySelectorAll("ol[aria-label=Guesses] > li[aria-hidden]")];
-        const playing = empty.length > 0 && !page.querySelector("[aria-label$='of 5 stars']");
+        // the round as the page says it (game.tsx's data-round and data-guesses), and the slots still to fill
+        const tiles = Number(page.getAttribute("data-guesses") ?? 0);
+        const empty = [...page.querySelectorAll("[data-play-part=guesses] > li[data-empty]")];
+        const playing = empty.length > 0 && page.getAttribute("data-round") === "playing";
         const id = !playing ? null : tiles === 0 ? (zoomed.current ? null : "zoom") : tiles === 1 ? "first" : null;
         if (id) page.setAttribute("data-row-note", id); else page.removeAttribute("data-row-note");
         if (id === "zoom" && !shimmered.current) {
@@ -90,11 +91,13 @@ export default function RoundTips() {
             window.setTimeout(() => page.removeAttribute("data-clue-shimmer"), ENTRANCE.lead + ENTRANCE.sweep + ENTRANCE.rise * 2 + 200);
         }
         if (!id) { setNote(null); setBox(null); return; }
-        if (id === "first") { remember(); first.current ??= explain(); }
+        if (id === "first") { remember(); first.current ??= passage ? explain(bible, passage) : null; }
+        // a first reading the page can't give (no passage to read it against) is simply left out
+        if (id === "first" && !first.current) { page.removeAttribute("data-row-note"); setNote(null); setBox(null); return; }
         setNote(n => n?.id === id ? n : { id, text: id === "zoom" ? ZOOM : first.current ?? "" });
         const a = empty[0].getBoundingClientRect(), b = empty[empty.length - 1].getBoundingClientRect();
         setBox({ x: a.left, y: a.top, width: b.right - a.left, height: a.height });
-    }, []);
+    }, [passage, bible]);
 
     useEffect(() => onZoom(() => { if (!zoomed.current) { zoomed.current = true; check(); } }), [check]);
 

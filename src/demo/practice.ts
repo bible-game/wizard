@@ -1,17 +1,6 @@
-/**
- * The practice round: a real past daily chapter (in the app it is saved like any game, so its stars move into an
- * account at sign-up). Psalm 127 is five verses, read in well under a minute, and the guesses towards it tell a story
- * about houses. The id is the local passage service's (15 April 2025).
- * @since 3rd November 2026
- */
-export const PRACTICE = {
-    id: 89,
-    date: "2025-04-15",
-    book: "Psalms",
-    chapter: "127",
-    summary: "Depend on Yahweh for true success",
-    verses: 5,
-};
+/** The practice round: the tutorial's sample day, which the demo's own steps share */
+import { PRACTICE } from "@/app/play/[game]/tutorial/practice";
+export { PRACTICE };
 
 /** The psalm in full (World English Bible, from the passage service): its verses, each as its lines of poetry */
 export const CHAPTER = [

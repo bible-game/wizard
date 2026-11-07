@@ -1,6 +1,7 @@
 "use client"
 
-import { guess, saveGuess } from "@/core/action/play/guess";
+import { saveGuess } from "@/core/action/play/guess";
+import * as Sentry from "@sentry/nextjs";
 import { score } from "@/app/play/[game]/score";
 import Link from "next/link";
 import moment from "moment";
@@ -226,11 +227,14 @@ ${calcGuessBlocks(won)}
 📖 ${percentage}% ⭐ ${stars}`;
     }
 
-    // only while the passage service scores a guess the browser couldn't
-    const [pending, setPending] = useState(false);
+    // A guess the browser can't score: its chapter, or the answer, isn't in the Bible's structure (core/config/bible.json),
+    // which should never happen while the app's copy matches the services' (scripts/check-bible.mjs). Nothing else can
+    // score it, so the button says so, and it's reported, rather than the guess going nowhere
+    const [unscored, setUnscored] = useState(false);
+    useEffect(() => setUnscored(false), [props.selected.book, props.chapter]);
 
     function submit() {
-        if (pending) return;
+        if (unscored) return;
         navigator.vibrate?.(12);
         const { book, chapter } = props.selected;
         const closeness = score(props.bible, props.passage, { book, chapter });
@@ -238,20 +242,21 @@ ${calcGuessBlocks(won)}
         if (closeness) {
             const scored = { book, chapter, ...closeness, closeness, passageBook: props.passage.book, passageChapter: props.passage.chapter };
             props.addGuess(scored);
-            save(props.passage.id, scored);
+            // a round shown rather than played (the tutorial's) is never sent
+            if (!props.demo) save(props.passage.id, scored);
             return;
         }
 
-        setPending(true);
-        guess(props.date, book, chapter, props.passage)
-            .then((guess: any) => props.addGuess(guess))
-            .catch(e => console.error(e))
-            .finally(() => setPending(false));
+        setUnscored(true);
+        Sentry.captureMessage("A guess couldn't be scored: its chapter or the answer is missing from the Bible's structure", {
+            level: "error",
+            extra: { date: props.date, passageId: props.passage?.id, guess: `${book} ${chapter}` },
+        });
     }
 
     const guessed = props.hasBook && props.isExistingGuess();
     // a chapter the guesses exclude can't be guessed; the button says why instead
-    const excluded: string | undefined = guessed ? undefined : props.ruledOut;
+    const excluded: string | undefined = guessed ? undefined : unscored ? "Couldn’t score this guess. Try again later" : props.ruledOut;
 
     // the selected chapter's division colour (the map's own), and the group it falls in
     const bookKey = props.bible.testaments.flatMap((t: any) => t.divisions).flatMap((d: any) => d.books)
@@ -262,7 +267,7 @@ ${calcGuessBlocks(won)}
 
     // an already-guessed chapter can't be guessed again: marked wrong with an X, the button opens How to play instead, to explain its result
     const guessButton = (
-        <button type="button" disabled={!!excluded || pending} aria-busy={pending} onClick={guessed ? undefined : submit}
+        <button type="button" disabled={!!excluded} onClick={guessed ? undefined : submit}
                 aria-label={excluded ? undefined : guessed
                     ? `Already guessed ${props.selected.book} ${props.chapter}. How to play`
                     : `Guess ${props.selected.book} ${props.chapter}`}
@@ -274,8 +279,7 @@ ${calcGuessBlocks(won)}
                 <span className="truncate">{excluded}</span> :
                 <>
                     {guessed ? <XIcon className="size-5 shrink-0" strokeWidth={2.25} aria-hidden="true"/> : null}
-                    {/* waiting on the passage service, the label pulses like a skeleton rather than spinning */}
-                    <span className={`flex min-w-0 items-center gap-2 ${pending ? "animate-pulse" : ""}`}>
+                    <span className="flex min-w-0 items-center gap-2">
                         <Passage key={`${props.selected.book} ${props.chapter}`} book={props.selected.book} chapter={props.chapter}/>
                         {guessed ? null : <ArrowRightIcon className="size-5 shrink-0" strokeWidth={2}/>}
                     </span>

@@ -1,11 +1,12 @@
+"use client"
+
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "framer-motion";
-import { ArrowRightIcon, BookOpenIcon, ChartColumnIcon, ChevronDownIcon, LightbulbIcon, MenuIcon, PlayIcon, UserRoundIcon, UserRoundPlusIcon } from "lucide-react";
+import { ArrowRightIcon, BookOpenIcon, ChartColumnIcon, ChevronDownIcon, LightbulbIcon, PlayIcon, UserRoundIcon, UserRoundPlusIcon } from "lucide-react";
 import GlowingCross from "@/app/home/glowing-cross";
-import { toast, Toaster } from "@/demo/toast";
+import AppHeader from "@/core/component/app-header";
 import { playTheme } from "@/core/style/play-theme";
-import { PRACTICE } from "@/demo/practice";
-import "@/demo/tutorial.sass";
+import "@/app/home/landing.sass";
 
 /**
  * The beats, a resting place each: the hero, as the Bible Game's home has it; the daily flow, a beat for each of its
@@ -25,19 +26,11 @@ const FLOW_HEADING = "Purpose";
 const FLOW_WORDS = "Explore the human story";
 
 /**
- * Whether we know this visitor's account (in the webapp, they have logged in on this device before: `known`). In the
- * wizard, ?known in the address says so, and ?known=0 forgets it; it's kept on the device between visits
+ * Who the visitor is to us, for the close's buttons: a guest we don't know (Sign up beside Play), one whose account we
+ * know, logged in on this device before (Play beside Log in), or a member, logged in now (Play alone)
  */
-const KNOWN = "wizard.known";
-function knownAccount(): boolean {
-    const asked = new URLSearchParams(window.location.search).get("known");
-    try {
-        if (asked !== null) {
-            if (asked === "0" || asked === "false") localStorage.removeItem(KNOWN); else localStorage.setItem(KNOWN, "1");
-        }
-        return localStorage.getItem(KNOWN) === "1";
-    } catch { return asked !== null && asked !== "0"; }
-}
+export type LandingAccount = "guest" | "known" | "member";
+
 /** The close: today's own clue, in the clue's place over the map, under the question it asks as its heading */
 const CLOSE_WORDS = "Can you find today’s chapter?";
 /** The clue's own type (summary.tsx) */
@@ -82,7 +75,7 @@ const measures = (width: number, room: number) => {
  * A step's star. Nothing until the scroll reaches it; then it lights: a circle of its colour, tinted within, its edge drawn finely, in a soft halo, and in it the step's icon
  * in the colour, as the menu draws it
  */
-function Star({ colour, icon: Icon, ring, size, lit, delay }: { colour: string; icon: typeof MenuIcon; ring: number; size: number; lit: boolean; delay: number }) {
+function Star({ colour, icon: Icon, ring, size, lit, delay }: { colour: string; icon: typeof PlayIcon; ring: number; size: number; lit: boolean; delay: number }) {
     const ease = { duration: 0.5, ease: [0.22, 0.8, 0.24, 1] as const, delay: lit ? delay : 0 };
     return <g>
         <motion.g initial={{ opacity: 0, scale: 0.6 }} animate={lit ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.6 }} transition={ease}>
@@ -165,35 +158,40 @@ const PlayButton = ({ onPlay, className = "" }: { onPlay: () => void; className?
         Play today&apos;s chapter<ArrowRightIcon aria-hidden="true" className="size-5 shrink-0 transition-transform group-hover:translate-x-0.5" strokeWidth={2}/>
     </button>;
 
-/** The Play page's places, by the webapp's structure (app/play/[game]/game.tsx, summary.tsx), as tutorial.tsx finds them */
+/** The Play page's places, by their hooks (data-play-part, app/play/[game]/game.tsx, summary.tsx), as the tutorial finds them */
 const places = (page: Element) => ({
-    header: page.querySelector("header"),
-    clue: page.querySelector(":scope > div > section > button:first-child"),
-    guesses: page.querySelector("ol[aria-label=Guesses]"),
-    map: page.querySelector(":scope > div.flex-1"),
-    bar: page.querySelector(":scope > section"),
+    header: page.querySelector("[data-play-part=header]"),
+    clue: page.querySelector("[data-play-part=clue]"),
+    guesses: page.querySelector("[data-play-part=guesses]"),
+    map: page.querySelector("[data-play-part=map]"),
+    bar: page.querySelector("[data-play-part=bar]"),
 });
 type Box = { x: number; y: number; width: number; height: number };
 const boxOf = (el: Element | null): Box | null => { if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, width: r.width, height: r.height }; };
 const at = (b: Box) => ({ left: b.x, top: b.y, width: b.width, height: b.height });
 
 /**
- * The landing, over the Play page with the page's own parts held back (onboarding.tsx sets data-landing). Six beats,
- * each a CSS snap point (the browser does the scrolling):
+ * The landing, over the Play page with the page's own parts held back (its host sets data-landing). Six beats, each a
+ * CSS snap point (the browser does the scrolling):
  * - the hero, as the Bible Game's home has it: the B, always turning to the cross and back, the tagline, Play today's
- *   chapter (in the map's colours), and How it works at the foot
- * - the flow, a beat a step: in the clue's place its heading, in the map's place the route, a stop more each beat
- * - today's game: the map comes in, with words in the clue's place set as a clue is, Play today's chapter in the guess
- *   bar, and the footer; Play dissolves the landing into the game, the tutorial on a first visit or the round
- * The header holds the menu throughout
+ *   chapter (white), and How it works at the foot
+ * - Purpose, a beat a step: in the clue's place its heading and words, in the map's place the steps, one more each beat
+ * - today's game: the map comes in, today's clue in the clue's place under the question it asks, and the account's
+ *   buttons in the guess bar's place; Play dissolves the landing into the game, the tutorial on a first visit or the round
+ * The header holds the menu throughout (the app's own, AppHeader). `summary` is today's clue; `onSignUp` and `onLogIn` go to the
+ * account pages (the wizard mocks them). Used by the webapp's home (home/home-host.tsx) and the wizard's (onboarding.tsx)
  */
-export default function LandingOverlay({ onPlay }: { onPlay: () => void }) {
+export default function LandingOverlay({ onPlay, onSignUp, onLogIn, account, summary, info }: {
+    onPlay: () => void; onSignUp: () => void; onLogIn: () => void; account: LandingAccount; summary?: string;
+    info?: { firstname: string; lastname: string };
+}) {
     const [page, setPage] = useState<Element | null>(null);
     const [boxes, setBoxes] = useState<Record<string, Box | null>>({});
     const [beat, setBeat] = useState(0);
     // where each beat rests, in pixels, measured from the snap points themselves
     const markers = useRef<(HTMLDivElement | null)[]>([]);
-    const rests = useRef(REST.map(r => window.innerHeight * r / 100));
+    // (a first guess from the viewport, until they're measured; none on the server, which has no viewport)
+    const rests = useRef(REST.map(r => typeof window === "undefined" ? 0 : window.innerHeight * r / 100));
 
     // the page, once it's there
     useEffect(() => {
@@ -220,7 +218,7 @@ export default function LandingOverlay({ onPlay }: { onPlay: () => void }) {
         return () => { observer.disconnect(); window.removeEventListener("resize", measure); };
     }, [page, measure]);
 
-    // which beat the scroll is on; the map is held back (tutorial.sass) until the last, today's game
+    // which beat the scroll is on; the map is held back (landing.sass) until the last, today's game
     const { scrollY } = useScroll();
     // the beat is the resting place nearest the scroll
     const nearest = (y: number) => rests.current.reduce((best, r, i) => Math.abs(r - y) < Math.abs(rests.current[best] - y) ? i : best, 0);
@@ -241,10 +239,6 @@ export default function LandingOverlay({ onPlay }: { onPlay: () => void }) {
         return () => { html.style.scrollSnapType = ""; history.scrollRestoration = was; };
     }, []);
 
-    const [known] = useState(knownAccount);
-    // Log in, mocked: as if the visitor had signed in, then on into today's game
-    const logIn = () => { toast("Logged in"); onPlay(); };
-
     const kind = BEATS[beat];
     const { header, clue, guesses, map, bar } = boxes;
 
@@ -259,17 +253,13 @@ export default function LandingOverlay({ onPlay }: { onPlay: () => void }) {
             <h2>{FLOW_HEADING}: {FLOW_WORDS}</h2>
             <ol>{STOPS.map(s => <li key={s.name}>{s.number} {s.name}: {s.what}</li>)}</ol>
             <h2>{CLOSE_WORDS}</h2>
-            <p>Today’s clue: {PRACTICE.summary}</p>
+            {summary ? <p>Today’s clue: {summary}</p> : null}
         </div>
 
         <div className="pointer-events-none fixed inset-0">
-            {/* the header's place: the menu */}
-            {header ? <div className="absolute flex items-center justify-between px-2" style={at(header)}>
-                <button type="button" aria-label="Open menu" onClick={() => toast("Opens the menu")}
-                        className="pointer-events-auto relative flex size-11 items-center justify-center rounded-lg text-ui-text hover:bg-ui-raised">
-                    <MenuIcon className="size-6"/>
-                    <span aria-hidden="true" className="absolute right-2 top-2 size-2.5 rounded-full bg-ui-notice ring-2 ring-ui-bg"/>
-                </button>
+            {/* the header's place: the menu (the app's own, with nothing on the right) */}
+            {header ? <div className="pointer-events-auto absolute" style={at(header)}>
+                <AppHeader info={info} aside={null}/>
             </div> : null}
 
             {/* the hero, as the Bible Game's home (app/landing.tsx): the emblem, the tagline, Play, and How it works */}
@@ -290,7 +280,7 @@ export default function LandingOverlay({ onPlay }: { onPlay: () => void }) {
                         <p className={`landing-words ${CLUE}`}>{FLOW_WORDS}</p>
                     </motion.div> : kind === "close" ? <motion.div key="close" exit={{ opacity: 0, transition: { duration: 0.15 } }} className="flex flex-col items-center">
                         <p className="mb-1.5 font-mono text-[11px] uppercase leading-4 tracking-[0.14em] text-ui-muted">{CLOSE_WORDS}</p>
-                        <p className={`landing-words ${CLUE}`}>{PRACTICE.summary}</p>
+                        <p className={`landing-words ${CLUE}`}>{summary}</p>
                     </motion.div> : null}
                 </AnimatePresence>
             </div> : null}
@@ -321,19 +311,22 @@ export default function LandingOverlay({ onPlay }: { onPlay: () => void }) {
 
             {/* the guess bar's place, at the close: two buttons side by side, as the round's end has Copy and Read (action.tsx):
                 for a visitor we don't know, Sign up beside Play, the lead; for one whose account we know, Play beside Log in, the
-                lead, which signs them in and takes them on into today's game */}
+                lead, which signs them in and takes them on into today's game; for a member, logged in, Play alone */}
             {bar ? <div className="absolute flex items-center px-4" style={at(bar)}>
                 <AnimatePresence>
                     {kind === "close" ? <motion.div key="play" {...rise(0.15)} className="grid w-full grid-cols-2 gap-2">
-                        {known ? <>
+                        {account === "member" ?
+                            <button type="button" onClick={onPlay} className={`group col-span-2 ${BAR} ${LEAD}`}>
+                                Play<ArrowRightIcon aria-hidden="true" className="size-4 shrink-0 transition-transform group-hover:translate-x-0.5" strokeWidth={2.25}/>
+                            </button> : account === "known" ? <>
                             <button type="button" onClick={onPlay} className={`${BAR} ${FOLLOW}`}>
                                 Play<ArrowRightIcon aria-hidden="true" className="size-4 shrink-0" strokeWidth={2.25}/>
                             </button>
-                            <button type="button" onClick={logIn} className={`${BAR} ${LEAD}`}>
+                            <button type="button" onClick={onLogIn} className={`${BAR} ${LEAD}`}>
                                 <UserRoundIcon className="size-4 shrink-0" strokeWidth={2.25} aria-hidden="true"/>Log in
                             </button>
                         </> : <>
-                            <button type="button" onClick={() => toast("Opens Sign up")} className={`${BAR} ${FOLLOW}`}>
+                            <button type="button" onClick={onSignUp} className={`${BAR} ${FOLLOW}`}>
                                 <UserRoundPlusIcon className="size-4 shrink-0" strokeWidth={2.25} aria-hidden="true"/>Sign up
                             </button>
                             <button type="button" onClick={onPlay} className={`group ${BAR} ${LEAD}`}>
@@ -344,6 +337,5 @@ export default function LandingOverlay({ onPlay }: { onPlay: () => void }) {
                 </AnimatePresence>
             </div> : null}
         </div>
-        <Toaster/>
     </div>;
 }
