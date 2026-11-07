@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 const src = (path: string) => fileURLToPath(new URL(`./src/${path}`, import.meta.url));
 
 // "@/" resolves to src, as in the webapp, so the copied components keep their imports. The Play page is the webapp's
-// own (scripts/sync-play.py copies it); what it needs from Next, SWR and HeroUI resolves to the wizard's stand-ins in
+// own (scripts/sync-play.py copies it); what it needs from Next, SWR, HeroUI and Sentry resolves to the wizard's stand-ins in
 // src/web-shims, and its env to nothing (there are no services). Assets are linked relatively (base "./"), so the build
 // works wherever it's served: GitHub Pages' /wizard/, or the root
 export default defineConfig({
@@ -22,6 +22,7 @@ export default defineConfig({
             { find: /^next\/navigation$/, replacement: src("web-shims/next-navigation.ts") },
             { find: /^swr$/, replacement: src("web-shims/swr.ts") },
             { find: /^@heroui\/(react|button)$/, replacement: src("web-shims/heroui.tsx") },
+            { find: /^@sentry\/nextjs$/, replacement: src("web-shims/sentry.ts") },
             { find: "@", replacement: src("") },
         ],
     },
